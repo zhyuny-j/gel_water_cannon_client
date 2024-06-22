@@ -302,6 +302,7 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
 
                 SendLoginVerifyToSever(byteUserId, byteUserPw);
                 */
+                
             }
         }
         }

@@ -20,6 +20,8 @@
 #include <openssl/pem.h>
 #include <openssl/ssl.h>
 #include <openssl/err.h>
+#include <openssl/hmac.h>
+#include <openssl/evp.h>
 
 #pragma comment(lib, "ws2_32.lib")
 #pragma comment(lib, "libssl.lib")
@@ -98,6 +100,9 @@ bool SendCodeToSever(unsigned char Code)
         //printf("Message len %d\n", msglen);
         MsgCmd.Hdr.Len = htonl(sizeof(unsigned char));
         MsgCmd.Hdr.Type = htonl(MT_COMMANDS);
+        const char* hash = getHmac(NULL);
+        int hashLen = strlen(hash);
+        int bufferSize = sizeof(MsgCmd.Hdr.HMAC);
         strcpy_s(MsgCmd.Hdr.HMAC, sizeof(MsgCmd.Hdr.HMAC), getHmac(NULL));
         memset(MsgCmd.Hdr.HMAC + strlen(MsgCmd.Hdr.HMAC), 0, sizeof(MsgCmd.Hdr.HMAC) - strlen(MsgCmd.Hdr.HMAC));
 
@@ -233,7 +238,7 @@ bool SendLoginEnrollToSever(const char* userId, const char* userPw)
         std::cout << "SendLoginEnrollToSever" << std::endl;
 
         TMesssageLoginEnrollRequest MsgLoginEnroll;
-        int msglen = sizeof(TMesssageHeader) + (int)sizeof(MsgLoginEnroll.Name) + (int)sizeof(MsgLoginEnroll.Password) + 1;
+        int msglen = sizeof(TMesssageHeader) + (int)sizeof(MsgLoginEnroll.Name) + (int)sizeof(MsgLoginEnroll.Password);
 
         MsgLoginEnroll.Hdr.Len = htonl((int)sizeof(MsgLoginEnroll.Name) + (int)sizeof(MsgLoginEnroll.Password));
         MsgLoginEnroll.Hdr.Type = htonl(MT_LOGIN_ENROLL_REQ);
@@ -261,7 +266,7 @@ bool SendLoginVerifyToSever(const char *userId, const char *userPw)
         std::cout << "SendLoginVerifyToSever" << std::endl;
 
         TMesssageLoginVerifyRequest MsgLoginVerify;
-        int msglen = sizeof(TMesssageHeader) + (int)sizeof(MsgLoginVerify.Name) + (int)sizeof(MsgLoginVerify.Password) + 1;
+        int msglen = sizeof(TMesssageHeader) + (int)sizeof(MsgLoginVerify.Name) + (int)sizeof(MsgLoginVerify.Password);
 
         MsgLoginVerify.Hdr.Len = htonl((int)sizeof(MsgLoginVerify.Name) + (int)sizeof(MsgLoginVerify.Password));
         MsgLoginVerify.Hdr.Type = htonl(MT_LOGIN_VERITY_REQ);
@@ -289,7 +294,7 @@ bool SendLoginChangePwToSever(const char* userId, const char* userPw)
         std::cout << "SendLoginChangePwToSever" << std::endl;
 
         TMesssageLoginChangePwRequest MsgLoginChangePw;
-        int msglen = sizeof(TMesssageHeader) + (int)sizeof(MsgLoginChangePw.Name) + (int)sizeof(MsgLoginChangePw.Password) + (int)sizeof(MsgLoginChangePw.Token) + 1;
+        int msglen = sizeof(TMesssageHeader) + (int)sizeof(MsgLoginChangePw.Name) + (int)sizeof(MsgLoginChangePw.Password) + (int)sizeof(MsgLoginChangePw.Token);
 
         MsgLoginChangePw.Hdr.Len = htonl((int)sizeof(MsgLoginChangePw.Name) + (int)sizeof(MsgLoginChangePw.Password) + (int)sizeof(MsgLoginChangePw.Token));
         MsgLoginChangePw.Hdr.Type = htonl(MT_LOGIN_CHANGEPW_REQ);
@@ -428,7 +433,26 @@ bool ConnectToSever(const char* remotehostname, unsigned short remoteport)
 }
 
 const char* getHmac(const char* body) {
-    const char* hmac = "HelloWorld0123456789012345678901";
+    const char* hmac = "HelloWorld012345678901234567890";
+    /*
+    const char* key = "your-secret-key";
+    const char* data = "message-to-hash";
+
+    unsigned char* result;
+    unsigned int result_len = -1;
+
+    // Create HMAC-SHA256
+    result = HMAC(EVP_sha256(), key, strlen(key), (unsigned char*)data, strlen(data), NULL, &result_len);
+
+    if (result != NULL) {
+        std::cout << "HMAC-SHA256: ";
+        //print_hex(result, result_len);
+    }
+    else {
+        std::cerr << "Failed to create HMAC" << std::endl;
+    }
+    */
+
     return hmac;
 }
 
