@@ -47,7 +47,6 @@ static void ClientCleanup(void);
 
 SSL* ssl;
 
-char* hmacKey = new char[32];
 char* token = new char[32];
 
 SSL_CTX* InitCTX() {
@@ -424,25 +423,6 @@ void setHmacValue(char* headerHmac, int sizeOfHmac, const char* body) {
 
 const char* getHmac(const char* body) {
     const char* hmac = "HelloWorld0123456789012345678901";
-    /*
-    const char* key = "your-secret-key";
-    const char* data = "message-to-hash";
-
-    unsigned char* result;
-    unsigned int result_len = -1;
-
-    // Create HMAC-SHA256
-    result = HMAC(EVP_sha256(), key, strlen(key), (unsigned char*)data, strlen(data), NULL, &result_len);
-
-    if (result != NULL) {
-        std::cout << "HMAC-SHA256: ";
-        //print_hex(result, result_len);
-    }
-    else {
-        std::cerr << "Failed to create HMAC" << std::endl;
-    }
-    */
-
     return hmac;
 }
 
