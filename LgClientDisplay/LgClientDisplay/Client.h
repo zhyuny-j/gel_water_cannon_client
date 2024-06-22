@@ -8,10 +8,11 @@ bool SendTargetOrderToSever(char *TargetOrder);
 bool SendPreArmCodeToSever(char* Code);
 bool SendStateChangeRequestToSever(SystemState_t State);
 bool SendCalibToSever(unsigned char Code);
-bool SendLoginEnrollToSever(char* userId, char* userPw);
-bool SendLoginVerifyToSever(char* userId, char* userPw);
-bool SendLoginChangePwToSever(char* userId, char* userPw);
-bool GetStoredCredential(const wchar_t* targetName, std::wstring& username, std::wstring& password);
+bool SendLoginEnrollToSever(const char* userId, const char* userPw);
+bool SendLoginVerifyToSever(const char* userId, const char* userPw);
+bool SendLoginChangePwToSever(const char* userId, const char* userPw);
+const char* getHmac(const char* body);
+//bool GetStoredCredential(const wchar_t* targetName, std::wstring& username, std::wstring& password);
 //-----------------------------------------------------------------
 // END of File
 //-----------------------------------------------------------------
