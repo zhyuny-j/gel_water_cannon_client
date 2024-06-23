@@ -9,6 +9,7 @@
 #define WM_LOGIN_STATE         WM_USER+5
 #define WM_LOGIN_PRIVILEGE     WM_USER+6
 #define WM_LOGIN_FAIL_COUNT    WM_USER+7
+#define WM_LOGIN_THROTTLE      WM_USER+8
 
 #define VIDEO_PORT       5000
 

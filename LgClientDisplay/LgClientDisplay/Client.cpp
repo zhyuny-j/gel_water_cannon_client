@@ -104,9 +104,9 @@ bool SendCodeToSever(unsigned char Code)
         MsgCmd.Commands = Code;
 
         int bodySize = sizeof(MsgCmd.Commands);
-        char msgCmdByte[1];
-        msgCmdByte[0] = static_cast<char>(MsgCmd.Commands);
-        setHmacValue(MsgCmd.Hdr.HMAC, sizeof(MsgCmd.Hdr.HMAC), msgCmdByte, bodySize);
+        char messageByte[sizeof(unsigned char)];
+        std::memcpy(&messageByte, &MsgCmd.Commands, sizeof(unsigned char));
+        setHmacValue(MsgCmd.Hdr.HMAC, sizeof(MsgCmd.Hdr.HMAC), messageByte, bodySize);
 
         if (WriteDataTcp(ssl, (unsigned char *)&MsgCmd, msglen)== msglen)
         {
@@ -130,9 +130,9 @@ bool SendCalibToSever(unsigned char Code)
         MsgCmd.Commands = Code;
 
         int bodySize = sizeof(MsgCmd.Commands);
-        char msgCmdByte[1];
-        msgCmdByte[0] = static_cast<char>(MsgCmd.Commands);
-        setHmacValue(MsgCmd.Hdr.HMAC, sizeof(MsgCmd.Hdr.HMAC), msgCmdByte, bodySize);
+        char messageByte[sizeof(unsigned char)];
+        std::memcpy(&messageByte, &MsgCmd.Commands, sizeof(unsigned char));
+        setHmacValue(MsgCmd.Hdr.HMAC, sizeof(MsgCmd.Hdr.HMAC), messageByte, bodySize);
 
         if (WriteDataTcp(ssl, (unsigned char*)&MsgCmd, msglen) == msglen)
         {
@@ -202,9 +202,9 @@ bool SendStateChangeRequestToSever(SystemState_t State)
         MsgChangeStateRequest.State = (SystemState_t)htonl(State);
 
         int bodySize = sizeof(MsgChangeStateRequest.State);
-        char msgCmdByte[1];
-        msgCmdByte[0] = static_cast<char>(MsgChangeStateRequest.State);
-        setHmacValue(MsgChangeStateRequest.Hdr.HMAC, sizeof(MsgChangeStateRequest.Hdr.HMAC), msgCmdByte, bodySize);
+        char messageByte[sizeof(unsigned int)];
+        std::memcpy(&messageByte, &MsgChangeStateRequest.State, sizeof(unsigned int));
+        setHmacValue(MsgChangeStateRequest.Hdr.HMAC, sizeof(MsgChangeStateRequest.Hdr.HMAC), messageByte, bodySize);
 
         if (WriteDataTcp(ssl, (unsigned char*)&MsgChangeStateRequest, msglen) == msglen)
         {
@@ -413,33 +413,17 @@ bool ConnectToSever(const char* remotehostname, unsigned short remoteport)
 }
 
 void setHmacValue(char* headerHmac, int sizeOfHmac, const char* body, int bodySize) {
-    /*
-    const char* hmacHashValue = getHmac(body);
-    memcpy(headerHmac, hmacHashValue, sizeOfHmac);
-    if (strlen(hmacHashValue) < 32) {
-        memset(headerHmac + strlen(headerHmac), 0, sizeof(headerHmac) - strlen(headerHmac));
-    }
-    */
     //TODO: delete this code for setHmacKey
     const char* myKey = "myHamcKeyPleaseForget";
     setHmacKey(myKey);
 
-    char* bodyBuffer = (char*)calloc(bodySize, sizeof(char));
-    memcpy(bodyBuffer, body, bodySize);
-
-    unsigned char* encryptedBody = encryptBodyWithHMac(bodyBuffer);
+    unsigned char* encryptedBody = encryptBodyWithHMac(body, bodySize);
     memcpy(headerHmac, encryptedBody, sizeOfHmac);
-    free(bodyBuffer);
 }
 
 bool checkHmacValidation(char* headerHmac, int sizeOfHmac, const char* body, int bodySize) {
-    char* bodyBuffer = (char*)calloc(bodySize, sizeof(char));
-    memcpy(bodyBuffer, body, bodySize);
-
-    unsigned char* encryptedBody = encryptBodyWithHMac(bodyBuffer);
-
+    unsigned char* encryptedBody = encryptBodyWithHMac(body, bodySize);
     return memcmp(headerHmac, encryptedBody, sizeOfHmac) == 0;
-
 }
 
 
@@ -508,7 +492,13 @@ void ProcessMessage(char* MsgBuffer)
     {
         TMesssageLoginEnrollResponse* MsgLoginEnrolRes;
         MsgLoginEnrolRes = (TMesssageLoginEnrollResponse*)MsgBuffer;
-        MsgLoginEnrolRes->LoginState = (LoginState_t)ntohl(MsgLoginEnrolRes->LoginState);
+        MsgLoginEnrolRes->LoginState = (LogInState_t)ntohl(MsgLoginEnrolRes->LoginState);
+        int bodySize = sizeof(MsgLoginEnrolRes->LoginState);
+        char messageByte[sizeof(unsigned int)];
+        std::memcpy(&messageByte, &MsgLoginEnrolRes->LoginState, sizeof(unsigned int));
+        if (!checkHmacValidation(MsgHdr->HMAC, sizeof(MsgHdr->HMAC), messageByte, bodySize)) {
+            printf("The HMAC value of LoginEnrollResponse is invalid. Drop the message");
+        }
         PostMessage(hWndMain, WM_LOGIN_STATE, MsgLoginEnrolRes->LoginState, 0);
 
     }
@@ -517,12 +507,19 @@ void ProcessMessage(char* MsgBuffer)
     {
         TMesssageLoginVerifyResponse* MsgLoginVerifyRes;
         MsgLoginVerifyRes = (TMesssageLoginVerifyResponse*)MsgBuffer;
-        MsgLoginVerifyRes->LoginState = (LoginState_t)ntohl(MsgLoginVerifyRes->LoginState);
+        MsgLoginVerifyRes->LoginState = (LogInState_t)ntohl(MsgLoginVerifyRes->LoginState);
+        int bodySize = sizeof(MsgLoginVerifyRes->LoginState) + sizeof(MsgLoginVerifyRes->FailCount) +
+            sizeof(MsgLoginVerifyRes->Throttle) + sizeof(MsgLoginVerifyRes->Privilige) + sizeof(MsgLoginVerifyRes->Token);
+        if (!checkHmacValidation(MsgHdr->HMAC, sizeof(MsgHdr->HMAC), reinterpret_cast<const char*>(&MsgLoginVerifyRes->LoginState), bodySize)) {
+            printf("The HMAC value of LoginVerifyResponse is invalid. Drop the message");
+        }
         PostMessage(hWndMain, WM_LOGIN_STATE, MsgLoginVerifyRes->LoginState, 0);
-        if (LoginState_t::SUCCESS != MsgLoginVerifyRes->LoginState) {
+        if (LogInState_t::SUCCESS != MsgLoginVerifyRes->LoginState) {
             PostMessage(hWndMain, WM_LOGIN_FAIL_COUNT, MsgLoginVerifyRes->FailCount, 0);
+            PostMessage(hWndMain, WM_LOGIN_THROTTLE, MsgLoginVerifyRes->Throttle, 0);
         }
         else {
+            memcpy(token, MsgLoginVerifyRes->Token, sizeof(token));
             PostMessage(hWndMain, WM_LOGIN_PRIVILEGE, MsgLoginVerifyRes->Privilige, 0);
         }
     }
@@ -531,9 +528,14 @@ void ProcessMessage(char* MsgBuffer)
     {
         TMesssageLoginChangePwResponse* MsgLoginChangePwRes;
         MsgLoginChangePwRes = (TMesssageLoginChangePwResponse*)MsgBuffer;
-        MsgLoginChangePwRes->LoginState = (LoginState_t)ntohl(MsgLoginChangePwRes->LoginState);
+        MsgLoginChangePwRes->LoginState = (LogInState_t)ntohl(MsgLoginChangePwRes->LoginState);
+        int bodySize = sizeof(MsgLoginChangePwRes->LoginState);
+        char messageByte[sizeof(unsigned int)];
+        std::memcpy(&messageByte, &MsgLoginChangePwRes->LoginState, sizeof(unsigned int));
+        if (!checkHmacValidation(MsgHdr->HMAC, sizeof(MsgHdr->HMAC), messageByte, bodySize)) {
+            printf("The HMAC value of MsgLoginChangePwRes is invalid. Drop the message");
+        }
         PostMessage(hWndMain, WM_LOGIN_STATE, MsgLoginChangePwRes->LoginState, 0);
-
     }
     break;
     default:

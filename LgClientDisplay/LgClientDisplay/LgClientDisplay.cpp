@@ -118,7 +118,7 @@ static bool OnlyOneInstance(void);
 bool IsAccountLocked(const std::string& userID);
 void RecordFailedAttempt(const std::string& userID);
 bool IsValidPassword(const std::string& password);
-void ProcessLoginResponse(LoginState_t response);
+void ProcessLoginResponse(LogInState_t response);
 //void OnLogin(HWND hWnd);
 //void OnLogout(HWND hWnd);
 //void RegisterUser(HWND hWnd);
@@ -229,7 +229,7 @@ void OnRegistorButtonClick(HWND hWnd) {
     }
 }
 
-void ProcessLoginResponse(LoginState_t response) {
+void ProcessLoginResponse(LogInState_t response) {
     switch (response) {
     case SUCCESS:
         DisplayMessageOkBox("Login 성공");
@@ -705,7 +705,7 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
 
     case WM_LOGIN_STATE:
     {
-        LoginState_t loginState = (LoginState_t)wParam;
+        LogInState_t loginState = (LogInState_t)wParam;
         ProcessLoginResponse(loginState);
         break;
     }

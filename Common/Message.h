@@ -51,15 +51,18 @@ enum SystemState_t : unsigned int
     CAMERA_ON    = 0x100
 };
 
-enum LoginState_t : unsigned int
+enum LogInState_t : unsigned int
 {
-    SUCCESS = 0x0,
-    NOT_EXIST_USER = 0x1,
-    INVALID_PASSWORD = 0x2,
-    EXIST_USER = 0x3,
-    EXPIRE_PASSWORD = 0x4,
-    INVALID_TOKEN = 0x5,
-    INVALID_OPERATION = 0x6
+    SUCCESS             = 0x0,
+    NOT_EXIST_USER      = 0x1,
+    INVALID_PASSWORD    = 0x2,
+    EXIST_USER          = 0x3,
+    EXPIRE_PASSWORD     = 0x4,
+    INVALID_TOKEN       = 0x5,
+    INVALID_OPERATION   = 0x6,
+    INVALID_MSG         = 0x7,
+    AUTH_THROTTLED      = 0x8,
+    NO_PERMISSION       = 0x9,
 };
 
 
@@ -150,15 +153,15 @@ typedef struct
 typedef struct
 {
     TMesssageHeader Hdr;
-    LoginState_t  LoginState;
+    LogInState_t  LoginState;
 } TMesssageLoginEnrollResponse;
 
 typedef struct
 {
     TMesssageHeader Hdr;
-    LoginState_t  LoginState;
+    LogInState_t  LoginState;
     unsigned int    FailCount;
-    unsigned long   Throttle;
+    unsigned long long   Throttle;
     unsigned int    Privilige;
     char            Token[32];
 } TMesssageLoginVerifyResponse;
@@ -166,7 +169,7 @@ typedef struct
 typedef struct
 {
     TMesssageHeader Hdr;
-    LoginState_t  LoginState;
+    LogInState_t  LoginState;
 } TMesssageLoginChangePwResponse;
 
 #endif
