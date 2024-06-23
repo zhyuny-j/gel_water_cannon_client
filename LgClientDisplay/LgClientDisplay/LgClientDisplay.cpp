@@ -22,6 +22,7 @@
 //#include <log4cpp/FileAppender.hh>
 //#include <log4cpp/OstreamAppender.hh>
 //#include <log4cpp/PatternLayout.hh>
+#include "CryptogramUtil.h"
 
 #pragma comment(lib,"comctl32.lib")
 #ifdef _DEBUG
@@ -490,6 +491,13 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
 
                 SendLoginVerifyToSever(byteUserId, byteUserPw);
                 */
+                /*
+                const char* myKey = "myHamcKeyPleaseForget";
+                const char* body = "thisisamessagebody";
+                setHmacKey(myKey);
+                encryptBodyWithHMac(body);
+                */
+
             }
         }
     }

@@ -128,14 +128,6 @@ typedef struct
 typedef struct
 {
     TMesssageHeader Hdr;
-    unsigned int LengthOfId;
-    unsigned int LengthOfPw;
-    char IdAndPw[1024];
-} TMesssageLogin;
-
-typedef struct
-{
-    TMesssageHeader Hdr;
     char    Name[32];
     char    Password[32];
 } TMesssageLoginEnrollRequest;

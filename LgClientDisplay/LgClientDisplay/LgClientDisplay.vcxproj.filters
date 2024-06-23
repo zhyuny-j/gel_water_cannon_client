@@ -39,7 +39,7 @@
     <ClInclude Include="..\..\Common\Message.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="CrytogramUtil.h">
+    <ClInclude Include="CryptogramUtil.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -56,7 +56,7 @@
     <ClCompile Include="TcpSendRecv.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="CrytogramUtil.cpp">
+    <ClCompile Include="CryptogramUtil.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

@@ -12,6 +12,7 @@
 #include "LgClientDisplay.h"
 #include "TcpSendRecv.h"
 #include "DisplayImage.h"
+#include "CryptogramUtil.h"
 
 #include <wincrypt.h>
 //#include <wincred.h>
@@ -99,9 +100,14 @@ bool SendCodeToSever(unsigned char Code)
         //printf("Message len %d\n", msglen);
         MsgCmd.Hdr.Len = htonl(sizeof(unsigned char));
         MsgCmd.Hdr.Type = htonl(MT_COMMANDS);
-        setHmacValue(MsgCmd.Hdr.HMAC, sizeof(MsgCmd.Hdr.HMAC), NULL);
         
         MsgCmd.Commands = Code;
+
+        int bodySize = sizeof(MsgCmd.Commands);
+        char msgCmdByte[1];
+        msgCmdByte[0] = static_cast<char>(MsgCmd.Commands);
+        setHmacValue(MsgCmd.Hdr.HMAC, sizeof(MsgCmd.Hdr.HMAC), msgCmdByte, bodySize);
+
         if (WriteDataTcp(ssl, (unsigned char *)&MsgCmd, msglen)== msglen)
         {
             return true;
@@ -120,9 +126,14 @@ bool SendCalibToSever(unsigned char Code)
         //printf("Message len %d\n", msglen);
         MsgCmd.Hdr.Len = htonl(sizeof(unsigned char));
         MsgCmd.Hdr.Type = htonl(MT_CALIB_COMMANDS);
-        setHmacValue(MsgCmd.Hdr.HMAC, sizeof(MsgCmd.Hdr.HMAC), NULL);
 
         MsgCmd.Commands = Code;
+
+        int bodySize = sizeof(MsgCmd.Commands);
+        char msgCmdByte[1];
+        msgCmdByte[0] = static_cast<char>(MsgCmd.Commands);
+        setHmacValue(MsgCmd.Hdr.HMAC, sizeof(MsgCmd.Hdr.HMAC), msgCmdByte, bodySize);
+
         if (WriteDataTcp(ssl, (unsigned char*)&MsgCmd, msglen) == msglen)
         {
             return true;
@@ -140,9 +151,12 @@ bool SendTargetOrderToSever(char* TargetOrder)
         int msglen = sizeof(TMesssageHeader) + (int)strlen((const char*)TargetOrder)+1;
         MsgTargetOrder.Hdr.Len = htonl((int)strlen((const char*)TargetOrder)+1);
         MsgTargetOrder.Hdr.Type = htonl(MT_TARGET_SEQUENCE);
-        setHmacValue(MsgTargetOrder.Hdr.HMAC, sizeof(MsgTargetOrder.Hdr.HMAC), NULL);
 
         strcpy_s((char*)MsgTargetOrder.FiringOrder,sizeof(MsgTargetOrder.FiringOrder),TargetOrder);
+
+        int bodySize = sizeof(MsgTargetOrder.FiringOrder);
+        setHmacValue(MsgTargetOrder.Hdr.HMAC, sizeof(MsgTargetOrder.Hdr.HMAC), MsgTargetOrder.FiringOrder, bodySize);
+
         if (WriteDataTcp(ssl, (unsigned char*)&MsgTargetOrder, msglen) == msglen)
         {
             return true;
@@ -160,9 +174,13 @@ bool SendPreArmCodeToSever(char* Code)
         int msglen = sizeof(TMesssageHeader) + (int)strlen(Code) + 1;
         MsgPreArm.Hdr.Len = htonl((int)strlen(Code) + 1);
         MsgPreArm.Hdr.Type = htonl(MT_PREARM);
-        setHmacValue(MsgPreArm.Hdr.HMAC, sizeof(MsgPreArm.Hdr.HMAC), NULL);
+        
 
         strcpy_s((char*)MsgPreArm.Code, sizeof(MsgPreArm.Code), Code);
+
+        int bodySize = sizeof(MsgPreArm.Code);
+        setHmacValue(MsgPreArm.Hdr.HMAC, sizeof(MsgPreArm.Hdr.HMAC), MsgPreArm.Code, bodySize);
+
         if (WriteDataTcp(ssl, (unsigned char*)&MsgPreArm, msglen) == msglen)
         {
             return true;
@@ -180,9 +198,14 @@ bool SendStateChangeRequestToSever(SystemState_t State)
         int msglen = sizeof(TMesssageChangeStateRequest);
         MsgChangeStateRequest.Hdr.Len = htonl(sizeof(MsgChangeStateRequest.State));
         MsgChangeStateRequest.Hdr.Type = htonl(MT_STATE_CHANGE_REQ);
-        setHmacValue(MsgChangeStateRequest.Hdr.HMAC, sizeof(MsgChangeStateRequest.Hdr.HMAC), NULL);
-
+        
         MsgChangeStateRequest.State = (SystemState_t)htonl(State);
+
+        int bodySize = sizeof(MsgChangeStateRequest.State);
+        char msgCmdByte[1];
+        msgCmdByte[0] = static_cast<char>(MsgChangeStateRequest.State);
+        setHmacValue(MsgChangeStateRequest.Hdr.HMAC, sizeof(MsgChangeStateRequest.Hdr.HMAC), msgCmdByte, bodySize);
+
         if (WriteDataTcp(ssl, (unsigned char*)&MsgChangeStateRequest, msglen) == msglen)
         {
             return true;
@@ -191,36 +214,6 @@ bool SendStateChangeRequestToSever(SystemState_t State)
     }
     return false;
 }
-
-/*
-bool SendLoginToSever(unsigned int idLength, unsigned int pwLength, char* idAndPwd)
-{
-    if (IsClientConnected())
-    {
-        std::cout << "SendLoginToServer" << std::endl;
-
-        TMesssageLogin MsgLogin;
-        int msglen = sizeof(TMesssageHeader) + (int)strlen(idAndPwd) + 4 + 4 + 1;
-        //printf("Message len %d\n", msglen);
-        MsgLogin.Hdr.Len = htonl((int)strlen(idAndPwd) + 1 + 1 + 1);
-        MsgLogin.Hdr.Type = htonl(MT_LOGIN);
-        MsgLogin.LengthOfId = htonl(idLength);
-        MsgLogin.LengthOfPw = htonl(pwLength);
-
-        std::cout << sizeof(MsgLogin.IdAndPw) << std::endl;
-
-        strcpy_s((char*)MsgLogin.IdAndPw, sizeof(MsgLogin.IdAndPw), idAndPwd);
-        std::cout << MsgLogin.IdAndPw << std::endl;
-
-        if (WriteDataTcp(ssl, (unsigned char*)&MsgLogin, msglen) == msglen)
-        {
-            return true;
-        }
-
-    }
-    return false;
-}
-*/
 
 bool SendLoginEnrollToSever(const char* userId, const char* userPw)
 {
@@ -233,10 +226,12 @@ bool SendLoginEnrollToSever(const char* userId, const char* userPw)
 
         MsgLoginEnroll.Hdr.Len = htonl((int)sizeof(MsgLoginEnroll.Name) + (int)sizeof(MsgLoginEnroll.Password));
         MsgLoginEnroll.Hdr.Type = htonl(MT_LOGIN_ENROLL_REQ);
-        setHmacValue(MsgLoginEnroll.Hdr.HMAC, sizeof(MsgLoginEnroll.Hdr.HMAC), NULL);
 
         memoryCopyAndMemset(MsgLoginEnroll.Name, sizeof(MsgLoginEnroll.Name), userId);
         memoryCopyAndMemset(MsgLoginEnroll.Password, sizeof(MsgLoginEnroll.Password), userPw);
+
+        int bodySize = sizeof(MsgLoginEnroll.Name) + sizeof(MsgLoginEnroll.Password);
+        setHmacValue(MsgLoginEnroll.Hdr.HMAC, sizeof(MsgLoginEnroll.Hdr.HMAC), MsgLoginEnroll.Name, bodySize);
 
         if (WriteDataTcp(ssl, (unsigned char*)&MsgLoginEnroll, msglen) == msglen)
         {
@@ -258,10 +253,12 @@ bool SendLoginVerifyToSever(const char *userId, const char *userPw)
 
         MsgLoginVerify.Hdr.Len = htonl((int)sizeof(MsgLoginVerify.Name) + (int)sizeof(MsgLoginVerify.Password));
         MsgLoginVerify.Hdr.Type = htonl(MT_LOGIN_VERITY_REQ);
-        setHmacValue(MsgLoginVerify.Hdr.HMAC, sizeof(MsgLoginVerify.Hdr.HMAC), NULL);
 
         memoryCopyAndMemset(MsgLoginVerify.Name, sizeof(MsgLoginVerify.Name), userId);
         memoryCopyAndMemset(MsgLoginVerify.Password, sizeof(MsgLoginVerify.Password), userPw);
+
+        int bodySize = sizeof(MsgLoginVerify.Name) + sizeof(MsgLoginVerify.Password);
+        setHmacValue(MsgLoginVerify.Hdr.HMAC, sizeof(MsgLoginVerify.Hdr.HMAC), MsgLoginVerify.Name, bodySize);
         
         if (WriteDataTcp(ssl, (unsigned char*)&MsgLoginVerify, msglen) == msglen)
         {
@@ -283,11 +280,13 @@ bool SendLoginChangePwToSever(const char* userId, const char* userPw)
 
         MsgLoginChangePw.Hdr.Len = htonl((int)sizeof(MsgLoginChangePw.Name) + (int)sizeof(MsgLoginChangePw.Password) + (int)sizeof(MsgLoginChangePw.Token));
         MsgLoginChangePw.Hdr.Type = htonl(MT_LOGIN_CHANGEPW_REQ);
-        setHmacValue(MsgLoginChangePw.Hdr.HMAC, sizeof(MsgLoginChangePw.Hdr.HMAC), NULL);
 
         memoryCopyAndMemset(MsgLoginChangePw.Name, sizeof(MsgLoginChangePw.Name), userId);
         memoryCopyAndMemset(MsgLoginChangePw.Password, sizeof(MsgLoginChangePw.Password), userPw);
         memoryCopyAndMemset(MsgLoginChangePw.Token, sizeof(MsgLoginChangePw.Token), token);
+
+        int bodySize = sizeof(MsgLoginChangePw.Name) + sizeof(MsgLoginChangePw.Password) + sizeof(MsgLoginChangePw.Token);
+        setHmacValue(MsgLoginChangePw.Hdr.HMAC, sizeof(MsgLoginChangePw.Hdr.HMAC), MsgLoginChangePw.Name, bodySize);
 
         if (WriteDataTcp(ssl, (unsigned char*)&MsgLoginChangePw, msglen) == msglen)
         {
@@ -413,18 +412,36 @@ bool ConnectToSever(const char* remotehostname, unsigned short remoteport)
 
 }
 
-void setHmacValue(char* headerHmac, int sizeOfHmac, const char* body) {
+void setHmacValue(char* headerHmac, int sizeOfHmac, const char* body, int bodySize) {
+    /*
     const char* hmacHashValue = getHmac(body);
     memcpy(headerHmac, hmacHashValue, sizeOfHmac);
     if (strlen(hmacHashValue) < 32) {
         memset(headerHmac + strlen(headerHmac), 0, sizeof(headerHmac) - strlen(headerHmac));
     }
+    */
+    //TODO: delete this code for setHmacKey
+    const char* myKey = "myHamcKeyPleaseForget";
+    setHmacKey(myKey);
+
+    char* bodyBuffer = (char*)calloc(bodySize, sizeof(char));
+    memcpy(bodyBuffer, body, bodySize);
+
+    unsigned char* encryptedBody = encryptBodyWithHMac(bodyBuffer);
+    memcpy(headerHmac, encryptedBody, sizeOfHmac);
+    free(bodyBuffer);
 }
 
-const char* getHmac(const char* body) {
-    const char* hmac = "HelloWorld0123456789012345678901";
-    return hmac;
+bool checkHmacValidation(char* headerHmac, int sizeOfHmac, const char* body, int bodySize) {
+    char* bodyBuffer = (char*)calloc(bodySize, sizeof(char));
+    memcpy(bodyBuffer, body, bodySize);
+
+    unsigned char* encryptedBody = encryptBodyWithHMac(bodyBuffer);
+
+    return memcmp(headerHmac, encryptedBody, sizeOfHmac) == 0;
+
 }
+
 
 void memoryCopyAndMemset(char* destnation, int sizeOfDestination, const char* source) {
     strcpy_s(destnation, sizeOfDestination, source);

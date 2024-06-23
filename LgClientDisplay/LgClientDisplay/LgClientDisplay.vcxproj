@@ -145,7 +145,7 @@
   <ItemGroup>
     <ClInclude Include="..\..\Common\Message.h" />
     <ClInclude Include="Client.h" />
-    <ClInclude Include="CrytogramUtil.h" />
+    <ClInclude Include="CryptogramUtil.h" />
     <ClInclude Include="DisplayImage.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="LgClientDisplay.h" />
@@ -154,7 +154,7 @@
     <ClInclude Include="TcpSendRecv.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="CrytogramUtil.cpp" />
+    <ClCompile Include="CryptogramUtil.cpp" />
     <ClCompile Include="DisplayImage.cpp" />
     <ClCompile Include="LgClientDisplay.cpp" />
     <ClCompile Include="TcpSendRecv.cpp" />

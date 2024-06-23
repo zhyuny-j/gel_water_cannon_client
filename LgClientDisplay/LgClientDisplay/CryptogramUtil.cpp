@@ -1,14 +1,13 @@
-#include "CrytogramUtil.h"
+#include "CryptogramUtil.h"
 
 #include <iostream>
 #include <openssl/hmac.h>
 #include <openssl/evp.h>
 
-char* hmacKey;
+char* hmacKey = new char[32];
 
 void setHmacKey(const char* newHmacKey) {
-	char* hmacKey = (char*)calloc(strlen(newHmacKey) + 1, sizeof(char));
-	strcpy_s(hmacKey, sizeof(hmacKey), newHmacKey);
+	strcpy_s(hmacKey, strlen(newHmacKey)+1, newHmacKey);
 }
 
 unsigned char* encryptBodyWithHMac(const char* body) {
@@ -23,6 +22,7 @@ unsigned char* encryptBodyWithHMac(const char* body) {
         std::cout << "HMAC-SHA256: ";
 
         //TODO: delete this code
+        
         for (size_t i = 0; i < result_len; ++i) {
             printf("%02x", result[i]);
         }
