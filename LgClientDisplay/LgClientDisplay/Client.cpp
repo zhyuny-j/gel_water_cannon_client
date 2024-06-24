@@ -50,6 +50,9 @@ static void ClientCleanup(void);
 SSL* ssl;
 
 char* token = new char[32];
+unsigned long long clientSequenceNumber = 0L;
+unsigned long long serverSequenceNumber = 0L;
+bool isInitSequenceNumber = false;
 
 
 SSL_CTX* InitCTX() {
@@ -102,6 +105,7 @@ bool SendCodeToSever(unsigned char Code)
 		//printf("Message len %d\n", msglen);
 		MsgCmd.Hdr.Len = htonl(sizeof(unsigned char));
 		MsgCmd.Hdr.Type = htonl(MT_COMMANDS);
+		MsgCmd.Hdr.SeqNum = htonll(getClientSequenceNumber());
 
 		MsgCmd.Commands = Code;
 
@@ -128,6 +132,7 @@ bool SendCalibToSever(unsigned char Code)
 		//printf("Message len %d\n", msglen);
 		MsgCmd.Hdr.Len = htonl(sizeof(unsigned char));
 		MsgCmd.Hdr.Type = htonl(MT_CALIB_COMMANDS);
+		MsgCmd.Hdr.SeqNum = htonll(getClientSequenceNumber());
 
 		MsgCmd.Commands = Code;
 
@@ -153,6 +158,7 @@ bool SendTargetOrderToSever(char* TargetOrder)
 		int msglen = sizeof(TMesssageHeader) + (int)strlen((const char*)TargetOrder) + 1;
 		MsgTargetOrder.Hdr.Len = htonl((int)strlen((const char*)TargetOrder) + 1);
 		MsgTargetOrder.Hdr.Type = htonl(MT_TARGET_SEQUENCE);
+		MsgTargetOrder.Hdr.SeqNum = htonll(getClientSequenceNumber());
 
 		strcpy_s((char*)MsgTargetOrder.FiringOrder, sizeof(MsgTargetOrder.FiringOrder), TargetOrder);
 
@@ -176,7 +182,7 @@ bool SendPreArmCodeToSever(char* Code)
 		int msglen = sizeof(TMesssageHeader) + (int)strlen(Code) + 1;
 		MsgPreArm.Hdr.Len = htonl((int)strlen(Code) + 1);
 		MsgPreArm.Hdr.Type = htonl(MT_PREARM);
-
+		MsgPreArm.Hdr.SeqNum = htonll(getClientSequenceNumber());
 
 		strcpy_s((char*)MsgPreArm.Code, sizeof(MsgPreArm.Code), Code);
 
@@ -200,6 +206,7 @@ bool SendStateChangeRequestToSever(SystemState_t State)
 		int msglen = sizeof(TMesssageChangeStateRequest);
 		MsgChangeStateRequest.Hdr.Len = htonl(sizeof(MsgChangeStateRequest.State));
 		MsgChangeStateRequest.Hdr.Type = htonl(MT_STATE_CHANGE_REQ);
+		MsgChangeStateRequest.Hdr.SeqNum = htonll(getClientSequenceNumber());
 
 		MsgChangeStateRequest.State = (SystemState_t)htonl(State);
 
@@ -228,6 +235,7 @@ bool SendLoginEnrollToSever(const char* userId, const char* userPw)
 
 		MsgLoginEnroll.Hdr.Len = htonl((int)sizeof(MsgLoginEnroll.Name) + (int)sizeof(MsgLoginEnroll.Password));
 		MsgLoginEnroll.Hdr.Type = htonl(MT_LOGIN_ENROLL_REQ);
+		MsgLoginEnroll.Hdr.SeqNum = htonll(getClientSequenceNumber());
 
 		memoryCopyAndMemset(MsgLoginEnroll.Name, sizeof(MsgLoginEnroll.Name), userId);
 		memoryCopyAndMemset(MsgLoginEnroll.Password, sizeof(MsgLoginEnroll.Password), userPw);
@@ -255,6 +263,7 @@ bool SendLoginVerifyToSever(const char* userId, const char* userPw)
 
 		MsgLoginVerify.Hdr.Len = htonl((int)sizeof(MsgLoginVerify.Name) + (int)sizeof(MsgLoginVerify.Password));
 		MsgLoginVerify.Hdr.Type = htonl(MT_LOGIN_VERITY_REQ);
+		MsgLoginVerify.Hdr.SeqNum = htonll(getClientSequenceNumber());
 
 		memoryCopyAndMemset(MsgLoginVerify.Name, sizeof(MsgLoginVerify.Name), userId);
 		memoryCopyAndMemset(MsgLoginVerify.Password, sizeof(MsgLoginVerify.Password), userPw);
@@ -282,6 +291,7 @@ bool SendLoginChangePwToSever(const char* userId, const char* userPw)
 
 		MsgLoginChangePw.Hdr.Len = htonl((int)sizeof(MsgLoginChangePw.Name) + (int)sizeof(MsgLoginChangePw.Password) + (int)sizeof(MsgLoginChangePw.Token));
 		MsgLoginChangePw.Hdr.Type = htonl(MT_LOGIN_CHANGEPW_REQ);
+		MsgLoginChangePw.Hdr.SeqNum = htonll(getClientSequenceNumber());
 
 		memoryCopyAndMemset(MsgLoginChangePw.Name, sizeof(MsgLoginChangePw.Name), userId);
 		memoryCopyAndMemset(MsgLoginChangePw.Password, sizeof(MsgLoginChangePw.Password), userPw);
@@ -307,24 +317,6 @@ bool ConnectToSever(const char* remotehostname, unsigned short remoteport)
 	struct addrinfo* result = NULL;
 	char remoteportno[128];
 	SSL_CTX* ctx = InitCTX();
-
-	//TODO: delete this code if cannot get password from certification manager
-	/*
-	std::wstring targetName = L"ClientKeyCredential";
-	std::wstring username, password;
-
-	if (GetStoredCredential(targetName.c_str(), username, password))
-	{
-		std::wcout << "Username: " << username << std::endl;
-		std::wcout << "Password: " << password << std::endl;
-		// 여기에서 password를 사용하여 필요한 작업을 수행합니다.
-	}
-	else
-	{
-		std::cerr << "Failed to retrieve credential." << std::endl;
-	}
-	*/
-
 
 
 	// Load server key and CRT
@@ -428,8 +420,22 @@ bool checkHmacValidation(char* headerHmac, int sizeOfHmac, const char* body, int
 	return memcmp(headerHmac, encryptedBody, sizeOfHmac) == 0;
 }
 
-bool checkSequenceNumberValidation(int receivedSequenceNumber) {
+bool checkSequenceNumberValidation(unsigned long long receivedSequenceNumber) {
+	if (!isInitSequenceNumber) {
+		serverSequenceNumber = receivedSequenceNumber;
+		isInitSequenceNumber = true;
+		return true;
+	}
+	if (serverSequenceNumber >= receivedSequenceNumber) {
+		printf("Invalid sequence number");
+		return false;
+	}
+	serverSequenceNumber = receivedSequenceNumber;
+	return true;
+}
 
+unsigned long long getClientSequenceNumber() {
+	return clientSequenceNumber++;
 }
 
 
@@ -470,8 +476,13 @@ void ProcessMessage(char* MsgBuffer)
 	MsgHdr = (TMesssageHeader*)MsgBuffer;
 	MsgHdr->Len = ntohl(MsgHdr->Len);
 	MsgHdr->Type = ntohl(MsgHdr->Type);
+	MsgHdr->SeqNum = htonll(MsgHdr->SeqNum);
 
-	printf("Message Length: %d\n", MsgHdr->Len);
+	//printf("Message Length: %d\n", MsgHdr->Len);
+	//TODO: valid sequence number
+	if (!checkSequenceNumberValidation(MsgHdr->SeqNum)) {
+		
+	}
 
 	switch (MsgHdr->Type)
 	{
@@ -527,7 +538,7 @@ void ProcessMessage(char* MsgBuffer)
 			PostMessage(hWndMain, WM_LOGIN_THROTTLE, MsgLoginVerifyRes->Throttle, 0);
 		}
 		else {
-			memcpy(token, MsgLoginVerifyRes->Token, sizeof(token));
+			memcpy(token, MsgLoginVerifyRes->Token, sizeof(MsgLoginVerifyRes->Token));
 			PostMessage(hWndMain, WM_LOGIN_PRIVILEGE, MsgLoginVerifyRes->Privilige, 0);
 		}
 	}

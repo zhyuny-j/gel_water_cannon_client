@@ -13,7 +13,8 @@ bool SendLoginVerifyToSever(const char* userId, const char* userPw);
 bool SendLoginChangePwToSever(const char* userId, const char* userPw);
 void setHmacValue(char* headerHmac, int sizeOfHmac, const char* body, int bodySize);
 bool checkHmacValidation(char* headerHmac, int sizeOfHmac, const char* body, int bodySize);
-bool checkSequenceNumberValidation(int receivedSequenceNumber);
+bool checkSequenceNumberValidation(unsigned long long receivedSequenceNumber);
+unsigned long long getClientSequenceNumber();
 void memoryCopyAndMemset(char* destnation, int sizeOfDestination, const char* source);
 //bool GetStoredCredential(const wchar_t* targetName, std::wstring& username, std::wstring& password);
 //-----------------------------------------------------------------

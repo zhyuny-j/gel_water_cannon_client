@@ -730,6 +730,8 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
             CheckDlgButton(hWnd, IDC_CHECKBOX_LASER_ENABLE, BST_UNCHECKED);
             LaserOn = false;
         }
+        if (SystemState & CAMERA_ON) CheckDlgButton(hWnd, IDC_CHECKBOX_CAMERA, BST_CHECKED);
+        else CheckDlgButton(hWnd, IDC_CHECKBOX_CAMERA, BST_UNCHECKED);
 
         if (SystemState & CALIB_ON)
             CheckDlgButton(hWnd, IDC_CHECKBOX_CALIBRATE, BST_CHECKED);

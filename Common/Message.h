@@ -76,6 +76,7 @@ typedef struct
 {
     unsigned int Len;
     unsigned int Type;
+    unsigned long long SeqNum;
     char HMAC[32];
 } TMesssageHeader;
 
