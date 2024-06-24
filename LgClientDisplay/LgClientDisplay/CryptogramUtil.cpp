@@ -8,13 +8,8 @@
 char* hmacKey = new char[32];
 
 void setHmacKey(const char* newHmacKey, int bodyLengh) {
-    std::cout << "HmacKey: ";
-    for (size_t i = 0; i < strlen(newHmacKey); ++i) {
-        printf("%02x", newHmacKey[i]);
-    }
-    printf("\n");
     memcpy(hmacKey, newHmacKey, bodyLengh);
-    std::cout << "MemoryHmacKey: ";
+    std::cout << "HmacKey: ";
     for (size_t i = 0; i < strlen(hmacKey); ++i) {
         printf("%02x", hmacKey[i]);
     }
@@ -33,14 +28,13 @@ unsigned char* encryptBodyWithHMac(const char* body, int bodySize) {
     //TODO: delete this code
     std::cout << "BodyBuffer: ";
     for (size_t i = 0; i < bodySize; ++i) {
-        printf("%02x", bodyBuffer[i]);
+        printf("%02x ", bodyBuffer[i]);
     }
     printf("\n");
     
 
     // Create HMAC-SHA256
-    unsigned char hmacResult[SHA256_DIGEST_LENGTH]; // SHA256_DIGEST_LENGTH = 32
-    result = HMAC(EVP_sha256(), hmacKey, strlen(hmacKey), (unsigned char*)bodyBuffer, bodySize, hmacResult, &result_len);
+    result = HMAC(EVP_sha256(), hmacKey, strlen(hmacKey), (unsigned char*)bodyBuffer, bodySize, NULL, &result_len);
     free(bodyBuffer);
 
     if (result != NULL) {
@@ -48,7 +42,7 @@ unsigned char* encryptBodyWithHMac(const char* body, int bodySize) {
 
         //TODO: delete this code
         for (size_t i = 0; i < result_len; ++i) {
-            printf("%02x", hmacResult[i]);
+            printf("%02x", result[i]);
         }
         printf("\n");
     }

@@ -11,6 +11,7 @@ bool SendCalibToSever(unsigned char Code);
 bool SendLoginEnrollToSever(const char* userId, const char* userPw);
 bool SendLoginVerifyToSever(const char* userId, const char* userPw);
 bool SendLoginChangePwToSever(const char* userId, const char* userPw);
+bool SendLogoutToSever();
 void setHmacValue(char* headerHmac, int sizeOfHmac, const char* body, int bodySize);
 bool checkHmacValidation(char* headerHmac, int sizeOfHmac, const char* body, int bodySize);
 bool checkSequenceNumberValidation(unsigned long long receivedSequenceNumber);

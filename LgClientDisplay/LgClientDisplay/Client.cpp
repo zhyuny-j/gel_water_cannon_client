@@ -101,18 +101,28 @@ bool SendCodeToSever(unsigned char Code)
 	if (IsClientConnected())
 	{
 		TMesssageCommands MsgCmd;
-		int msglen = sizeof(TMesssageHeader) + sizeof(unsigned char);
+		int msglen = sizeof(TMesssageHeader) + sizeof(MsgCmd.Commands) + sizeof(MsgCmd.Token);
 		//printf("Message len %d\n", msglen);
-		MsgCmd.Hdr.Len = htonl(sizeof(unsigned char));
+		MsgCmd.Hdr.Len = htonl(sizeof(MsgCmd.Commands) + sizeof(MsgCmd.Token));
 		MsgCmd.Hdr.Type = htonl(MT_COMMANDS);
 		MsgCmd.Hdr.SeqNum = htonll(getClientSequenceNumber());
 
 		MsgCmd.Commands = Code;
+		
+		//TODO: It is a test code. delete this code
+		/*
+		setHmacKey("myHamcKeyPleaseForget", 21);
 
-		int bodySize = sizeof(MsgCmd.Commands);
-		char messageByte[sizeof(unsigned char)];
-		std::memcpy(&messageByte, &MsgCmd.Commands, sizeof(unsigned char));
-		setHmacValue(MsgCmd.Hdr.HMAC, sizeof(MsgCmd.Hdr.HMAC), messageByte, bodySize);
+		printf("assign toke: ");
+		for (int i = 0; i < 32; i++) {
+			token[i] = 0x21;
+			printf("%02x", token[i]);
+		}
+		printf("\n");
+		*/
+		memcpy(MsgCmd.Token, token, strlen(token));
+		int bodySize = sizeof(MsgCmd.Commands) + sizeof(MsgCmd.Token);
+		setHmacValue(MsgCmd.Hdr.HMAC, sizeof(MsgCmd.Hdr.HMAC), reinterpret_cast<const char*>(&MsgCmd.Commands), bodySize);
 
 		if (WriteDataTcp(ssl, (unsigned char*)&MsgCmd, msglen) == msglen)
 		{
@@ -128,18 +138,17 @@ bool SendCalibToSever(unsigned char Code)
 	if (IsClientConnected())
 	{
 		TMesssageCalibCommands MsgCmd;
-		int msglen = sizeof(TMesssageHeader) + sizeof(unsigned char);
+		int msglen = sizeof(TMesssageHeader) + sizeof(MsgCmd.Commands) + sizeof(MsgCmd.Token);
 		//printf("Message len %d\n", msglen);
-		MsgCmd.Hdr.Len = htonl(sizeof(unsigned char));
+		MsgCmd.Hdr.Len = htonl(sizeof(MsgCmd.Commands) + sizeof(MsgCmd.Token));
 		MsgCmd.Hdr.Type = htonl(MT_CALIB_COMMANDS);
 		MsgCmd.Hdr.SeqNum = htonll(getClientSequenceNumber());
 
 		MsgCmd.Commands = Code;
+		memcpy(MsgCmd.Token, token, strlen(token));
 
-		int bodySize = sizeof(MsgCmd.Commands);
-		char messageByte[sizeof(unsigned char)];
-		std::memcpy(&messageByte, &MsgCmd.Commands, sizeof(unsigned char));
-		setHmacValue(MsgCmd.Hdr.HMAC, sizeof(MsgCmd.Hdr.HMAC), messageByte, bodySize);
+		int bodySize = sizeof(MsgCmd.Commands) + sizeof(MsgCmd.Token);
+		setHmacValue(MsgCmd.Hdr.HMAC, sizeof(MsgCmd.Hdr.HMAC), reinterpret_cast<const char*>(&MsgCmd.Commands), bodySize);
 
 		if (WriteDataTcp(ssl, (unsigned char*)&MsgCmd, msglen) == msglen)
 		{
@@ -155,14 +164,15 @@ bool SendTargetOrderToSever(char* TargetOrder)
 	if (IsClientConnected())
 	{
 		TMesssageTargetOrder MsgTargetOrder;
-		int msglen = sizeof(TMesssageHeader) + (int)strlen((const char*)TargetOrder) + 1;
-		MsgTargetOrder.Hdr.Len = htonl((int)strlen((const char*)TargetOrder) + 1);
+		int msglen = sizeof(TMesssageHeader) + (int)strlen((const char*)TargetOrder) + 1 + sizeof(MsgTargetOrder.Token);
+		MsgTargetOrder.Hdr.Len = htonl((int)strlen((const char*)TargetOrder) + 1 + sizeof(MsgTargetOrder.Token));
 		MsgTargetOrder.Hdr.Type = htonl(MT_TARGET_SEQUENCE);
 		MsgTargetOrder.Hdr.SeqNum = htonll(getClientSequenceNumber());
 
 		strcpy_s((char*)MsgTargetOrder.FiringOrder, sizeof(MsgTargetOrder.FiringOrder), TargetOrder);
+		memcpy(MsgTargetOrder.Token, token, strlen(token));
 
-		int bodySize = sizeof(MsgTargetOrder.FiringOrder);
+		int bodySize = sizeof(MsgTargetOrder.FiringOrder) + sizeof(MsgTargetOrder.Token);
 		setHmacValue(MsgTargetOrder.Hdr.HMAC, sizeof(MsgTargetOrder.Hdr.HMAC), MsgTargetOrder.FiringOrder, bodySize);
 
 		if (WriteDataTcp(ssl, (unsigned char*)&MsgTargetOrder, msglen) == msglen)
@@ -179,14 +189,15 @@ bool SendPreArmCodeToSever(char* Code)
 	if (IsClientConnected())
 	{
 		TMesssagePreArm MsgPreArm;
-		int msglen = sizeof(TMesssageHeader) + (int)strlen(Code) + 1;
-		MsgPreArm.Hdr.Len = htonl((int)strlen(Code) + 1);
+		int msglen = sizeof(TMesssageHeader) + (int)strlen(Code) + 1 + sizeof(MsgPreArm.Token);
+		MsgPreArm.Hdr.Len = htonl((int)strlen(Code) + 1 + sizeof(MsgPreArm.Token));
 		MsgPreArm.Hdr.Type = htonl(MT_PREARM);
 		MsgPreArm.Hdr.SeqNum = htonll(getClientSequenceNumber());
 
 		strcpy_s((char*)MsgPreArm.Code, sizeof(MsgPreArm.Code), Code);
+		memcpy(MsgPreArm.Token, token, strlen(token));
 
-		int bodySize = sizeof(MsgPreArm.Code);
+		int bodySize = sizeof(MsgPreArm.Code) + sizeof(MsgPreArm.Token);
 		setHmacValue(MsgPreArm.Hdr.HMAC, sizeof(MsgPreArm.Hdr.HMAC), MsgPreArm.Code, bodySize);
 
 		if (WriteDataTcp(ssl, (unsigned char*)&MsgPreArm, msglen) == msglen)
@@ -203,17 +214,16 @@ bool SendStateChangeRequestToSever(SystemState_t State)
 	if (IsClientConnected())
 	{
 		TMesssageChangeStateRequest MsgChangeStateRequest;
-		int msglen = sizeof(TMesssageChangeStateRequest);
-		MsgChangeStateRequest.Hdr.Len = htonl(sizeof(MsgChangeStateRequest.State));
+		int msglen = sizeof(TMesssageChangeStateRequest) + sizeof(MsgChangeStateRequest.Token);
+		MsgChangeStateRequest.Hdr.Len = htonl(sizeof(MsgChangeStateRequest.State) + sizeof(MsgChangeStateRequest.Token));
 		MsgChangeStateRequest.Hdr.Type = htonl(MT_STATE_CHANGE_REQ);
 		MsgChangeStateRequest.Hdr.SeqNum = htonll(getClientSequenceNumber());
 
 		MsgChangeStateRequest.State = (SystemState_t)htonl(State);
+		memcpy(MsgChangeStateRequest.Token, token, strlen(token));
 
-		int bodySize = sizeof(MsgChangeStateRequest.State);
-		char messageByte[sizeof(unsigned int)];
-		std::memcpy(&messageByte, &MsgChangeStateRequest.State, sizeof(unsigned int));
-		setHmacValue(MsgChangeStateRequest.Hdr.HMAC, sizeof(MsgChangeStateRequest.Hdr.HMAC), messageByte, bodySize);
+		int bodySize = sizeof(MsgChangeStateRequest.State) + sizeof(MsgChangeStateRequest.Token);
+		setHmacValue(MsgChangeStateRequest.Hdr.HMAC, sizeof(MsgChangeStateRequest.Hdr.HMAC), reinterpret_cast<const char*>(&MsgChangeStateRequest.State), bodySize);
 
 		if (WriteDataTcp(ssl, (unsigned char*)&MsgChangeStateRequest, msglen) == msglen)
 		{
@@ -305,6 +315,31 @@ bool SendLoginChangePwToSever(const char* userId, const char* userPw)
 			return true;
 		}
 
+	}
+	return false;
+}
+
+bool SendLogoutToSever() {
+	if (IsClientConnected())
+	{
+		std::cout << "SendLogoutToSever" << std::endl;
+
+		TMesssageLogoutRequest MsgLogout;
+		int msglen = sizeof(TMesssageHeader) + sizeof(MsgLogout.Token);
+
+		MsgLogout.Hdr.Len = htonl(sizeof(MsgLogout.Token));
+		MsgLogout.Hdr.Type = htonl(MT_LOGOUT_REQ);
+		MsgLogout.Hdr.SeqNum = htonll(getClientSequenceNumber());
+
+		memoryCopyAndMemset(MsgLogout.Token, sizeof(MsgLogout.Token), token);
+
+		int bodySize = sizeof(MsgLogout.Token);
+		setHmacValue(MsgLogout.Hdr.HMAC, sizeof(MsgLogout.Hdr.HMAC), MsgLogout.Token, bodySize);
+
+		if (WriteDataTcp(ssl, (unsigned char*)&MsgLogout, msglen) == msglen)
+		{
+			return true;
+		}
 	}
 	return false;
 }
@@ -565,6 +600,25 @@ void ProcessMessage(char* MsgBuffer)
 		setHmacKey(MsgSharedHmacKey->SharedKey, MsgHdr->Len);
 		
 	}
+	break;
+	case MT_LOGOUT_RES:
+	{
+		TMesssageLogoutResponse* MsgLogoutRes;
+		MsgLogoutRes = (TMesssageLogoutResponse*)MsgBuffer;
+		MsgLogoutRes->LoginState = (LogInState_t)ntohl(MsgLogoutRes->LoginState);
+		int bodySize = sizeof(MsgLogoutRes->LoginState);
+		char messageByte[sizeof(unsigned int)];
+		std::memcpy(&messageByte, &MsgLogoutRes->LoginState, sizeof(unsigned int));
+		if (!checkHmacValidation(MsgHdr->HMAC, sizeof(MsgHdr->HMAC), messageByte, bodySize)) {
+			printf("The HMAC value of LoginEnrollResponse is invalid. Drop the message");
+		}
+		//Initialize token
+		for (int i = 0; i < strlen(token); i++) {
+			token[i] = 0x00;
+		}
+		PostMessage(hWndMain, WM_LOGIN_STATE, MsgLogoutRes->LoginState, 0);
+	}
+	break;
 	default:
 	{
 		printf("unknown message\n");
