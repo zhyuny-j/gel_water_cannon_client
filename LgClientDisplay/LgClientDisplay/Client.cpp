@@ -247,6 +247,8 @@ bool SendLoginEnrollToSever(const char* userId, const char* userPw)
 		MsgLoginEnroll.Hdr.Type = htonl(MT_LOGIN_ENROLL_REQ);
 		MsgLoginEnroll.Hdr.SeqNum = htonll(getClientSequenceNumber());
 
+		printf("sequence number: %d", MsgLoginEnroll.Hdr.SeqNum);
+
 		memoryCopyAndMemset(MsgLoginEnroll.Name, sizeof(MsgLoginEnroll.Name), userId);
 		memoryCopyAndMemset(MsgLoginEnroll.Password, sizeof(MsgLoginEnroll.Password), userPw);
 
@@ -462,7 +464,7 @@ bool checkSequenceNumberValidation(unsigned long long receivedSequenceNumber) {
 		return true;
 	}
 	if (serverSequenceNumber >= receivedSequenceNumber) {
-		printf("Invalid sequence number");
+		printf("Invalid sequence number: %d\n", receivedSequenceNumber);
 		return false;
 	}
 	serverSequenceNumber = receivedSequenceNumber;
@@ -470,7 +472,7 @@ bool checkSequenceNumberValidation(unsigned long long receivedSequenceNumber) {
 }
 
 unsigned long long getClientSequenceNumber() {
-	return clientSequenceNumber++;
+	return ++clientSequenceNumber;
 }
 
 
@@ -611,6 +613,7 @@ void ProcessMessage(char* MsgBuffer)
 		std::memcpy(&messageByte, &MsgLogoutRes->LoginState, sizeof(unsigned int));
 		if (!checkHmacValidation(MsgHdr->HMAC, sizeof(MsgHdr->HMAC), messageByte, bodySize)) {
 			printf("The HMAC value of LoginEnrollResponse is invalid. Drop the message");
+			return;
 		}
 		//Initialize token
 		for (int i = 0; i < strlen(token); i++) {

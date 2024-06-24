@@ -473,8 +473,13 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
 
 		case IDC_BUTTON_LOGOUT:
 		{
-			// 로그아웃 버튼 클릭 처리
-			OnLogoutButtonClick(hWnd);
+			if (isLoggedIn) {
+				isLoggedIn = false;
+				loggedInUserID.clear();
+				EnableWindow(GetDlgItem(hWnd, IDC_BUTTON_CHANGE_PASSWORD), FALSE);
+				ShowLoggedInID(hWnd, ""); // 로그인 상태 초기화
+				DisplayMessageOkBox("Logout Success");
+			}
 			break;
 		}
 
@@ -632,11 +637,20 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
 		else if (loginState == INVALID_PASSWORD) {
 			DisplayMessageOkBox("Your password is incorrect.");
 		}
+		else if (loginState == EXIST_USER) {
+			DisplayMessageOkBox("The user does not exist.");
+		}
+		else if (loginState == EXPIRE_PASSWORD) {
+			DisplayMessageOkBox("Your password has expired.");
+		}
 		else if (loginState == E_SUCCESS) {
 			DisplayMessageOkBox("Registor Success!");
 		}
 		else if (loginState == C_SUCCESS) {
 			DisplayMessageOkBox("Change Password Success!");
+		}
+		else if (loginState == MT_LOGOUT) {
+			PostMessage(hWnd, WM_COMMAND, IDC_BUTTON_LOGOUT, 0);
 		}
 		else {
 			DisplayMessageOkBox("Login failed!");
@@ -1003,6 +1017,7 @@ static LRESULT OnCreate(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		hWnd,
 		(HMENU)IDC_BUTTON_LOGIN,
 		((LPCREATESTRUCT)lParam)->hInstance, NULL);
+	EnableWindow(GetDlgItem(hWnd, IDC_BUTTON_LOGIN), FALSE);
 
 	CreateWindow(_T("button"), _T("Logout"),
 		WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
@@ -1010,6 +1025,7 @@ static LRESULT OnCreate(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		hWnd,
 		(HMENU)IDC_BUTTON_LOGOUT,
 		((LPCREATESTRUCT)lParam)->hInstance, NULL);
+	EnableWindow(GetDlgItem(hWnd, IDC_BUTTON_LOGOUT), FALSE);
 
 	CreateWindow(_T("button"), _T("Change Password"),
 		WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
@@ -1017,6 +1033,7 @@ static LRESULT OnCreate(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		hWnd,
 		(HMENU)IDC_BUTTON_CHANGE_PASSWORD,
 		((LPCREATESTRUCT)lParam)->hInstance, NULL);
+	EnableWindow(GetDlgItem(hWnd, IDC_BUTTON_CHANGE_PASSWORD), FALSE);
 
 	CreateWindow(_T("button"), _T("Register"),
 		WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
@@ -1024,6 +1041,7 @@ static LRESULT OnCreate(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		hWnd,
 		(HMENU)IDC_BUTTON_REGISTER,
 		((LPCREATESTRUCT)lParam)->hInstance, NULL);
+	EnableWindow(GetDlgItem(hWnd, IDC_BUTTON_REGISTER), FALSE);
 
 	CreateWindow(_T("button"), _T("Armed Manual"),
 		WS_VISIBLE | WS_CHILD | BS_CHECKBOX,
@@ -1078,7 +1096,7 @@ static LRESULT OnCreate(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		670, 75, 130, 20,
 		hWnd, (HMENU)IDC_CHECKBOX_CAMERA, ((LPCREATESTRUCT)lParam)->hInstance, NULL);
 	CheckDlgButton(hWnd, IDC_CHECKBOX_CAMERA, checked);
-	EnableWindow(GetDlgItem(hWnd, IDC_CHECKBOX_CAMERA), true);
+	EnableWindow(GetDlgItem(hWnd, IDC_CHECKBOX_CAMERA), false);
 
 	hWndEdit = CreateWindow(_T("edit"), NULL,
 		WS_CHILD | WS_BORDER | WS_VISIBLE | ES_MULTILINE | WS_VSCROLL | ES_READONLY,
@@ -1128,6 +1146,9 @@ static int OnConnect(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			EnableWindow(GetDlgItem(hWnd, IDC_BUTTON_PREARM_SAFE), true);
 			EnableWindow(GetDlgItem(hWnd, IDC_EDIT_PREARM_CODE), true);
 			EnableWindow(GetDlgItem(hWnd, IDC_LABEL_PREARM_CODE), true);
+			EnableWindow(GetDlgItem(hWnd, IDC_BUTTON_LOGIN), TRUE);
+			EnableWindow(GetDlgItem(hWnd, IDC_BUTTON_LOGOUT), TRUE);
+			EnableWindow(GetDlgItem(hWnd, IDC_BUTTON_REGISTER), TRUE);
 			return 1;
 		}
 		else
@@ -1323,6 +1344,7 @@ void OnLoginButtonClick(HWND hWnd) {
 	// Send login request to server
 	if (SendLoginVerifyToSever(userId, userPw)) {
 		std::cout << "Login request sent successfully" << std::endl;
+		EnableWindow(GetDlgItem(hWnd, IDC_BUTTON_CHANGE_PASSWORD), TRUE);
 	}
 	else {
 		std::cout << "Failed to send login request" << std::endl;
@@ -1383,6 +1405,7 @@ void OnLogoutButtonClick(HWND hWnd) {
 
 	// UI 요소 비활성화
 	EnableWindow(GetDlgItem(hWnd, IDC_BUTTON_CHANGE_PASSWORD), FALSE);
+	EnableWindow(GetDlgItem(hWnd, IDC_BUTTON_CHANGE_PASSWORD), TRUE);
 
 	DisplayMessageOkBox("You have been logged out.");
 }
