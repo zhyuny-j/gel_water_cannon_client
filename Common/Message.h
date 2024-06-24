@@ -12,7 +12,13 @@
 #define MT_STATE                 6
 #define MT_STATE_CHANGE_REQ      7
 #define MT_CALIB_COMMANDS        8
-#define MT_LOGIN                 9
+#define MT_LOGIN_ENROLL_REQ      9
+#define MT_LOGIN_VERITY_REQ     10
+#define MT_LOGIN_CHANGEPW_REQ   11
+#define MT_LOGIN_ENROLL_RES     12
+#define MT_LOGIN_VERITY_RES     13
+#define MT_LOGIN_CHANGEPW_RES   14
+#define MT_SHARED_HMAC_KEY      15
 
 #define PAN_LEFT_START  0x01
 #define PAN_RIGHT_START 0x02
@@ -29,13 +35,6 @@
 #define INC_X           0x02
 #define DEC_Y           0x04
 #define INC_Y           0x08
-
-#define MT_LOGIN_ENROLL_REQ      9
-#define MT_LOGIN_VERITY_REQ     10
-#define MT_LOGIN_CHANGEPW_REQ   11
-#define MT_LOGIN_ENROLL_RES     12
-#define MT_LOGIN_VERITY_RES     13
-#define MT_LOGIN_CHANGEPW_RES   14
 
 enum SystemState_t : unsigned int
 {
@@ -171,6 +170,14 @@ typedef struct
     TMesssageHeader Hdr;
     LogInState_t  LoginState;
 } TMesssageLoginChangePwResponse;
+
+typedef struct
+{
+    TMesssageHeader Hdr;
+    char            SharedKey[32];
+} TMesssageSharedHmacKey;
+
+
 
 #endif
 //------------------------------------------------------------------------------------------------

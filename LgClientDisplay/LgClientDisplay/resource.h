@@ -17,6 +17,15 @@
 #define IDR_WAVE3                       131
 #define IDC_STATIC                      -1
 
+#define IDD_CHANGE_PASSWORD_DIALOG  2001
+#define IDC_EDIT_CURRENT_PASSWORD   2002
+#define IDC_EDIT_NEW_PASSWORD       2003
+#define IDC_EDIT_CONFIRM_PASSWORD   2004
+
+#define IDD_ADMIN_LOGIN_DIALOG      2010
+#define IDC_EDIT_ADMIN_ID           2011
+#define IDC_EDIT_ADMIN_PASSWORD     2012
+
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
@@ -28,3 +37,5 @@
 #define _APS_NEXT_SYMED_VALUE           110
 #endif
 #endif
+
+

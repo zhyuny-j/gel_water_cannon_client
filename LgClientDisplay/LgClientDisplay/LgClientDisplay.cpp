@@ -1,4 +1,4 @@
-﻿// LgVideoChatDemo.cpp : Defines the entry point for the application.
+// LgVideoChatDemo.cpp : Defines the entry point for the application.
 
 #include "framework.h"
 #include <Commctrl.h>
@@ -13,16 +13,16 @@
 #include <opencv2\opencv.hpp>
 #include "LgClientDisplay.h"
 #include "DisplayImage.h"
-#include "Message.h"
+#include <Message.h>
 #include "Client.h"
 #include <cctype> // for isdigit and isalpha
 #include <ctime> // for time_t and time functions
+
 //#include <log4cpp/Category.hh>
 //#include <log4cpp/Appender.hh>
 //#include <log4cpp/FileAppender.hh>
 //#include <log4cpp/OstreamAppender.hh>
 //#include <log4cpp/PatternLayout.hh>
-#include "CryptogramUtil.h"
 
 #pragma comment(lib,"comctl32.lib")
 #ifdef _DEBUG
@@ -37,6 +37,7 @@
 #define MAX_LOADSTRING 100
 
 #define MT_LOGIN_REQUEST          1001
+#define MT_LOGIN_VERIFY_RES       1002
 
 #define IDC_LABEL_REMOTE          1010
 #define IDC_EDIT_REMOTE           1011
@@ -70,6 +71,10 @@
 #define IDC_EDIT_REGISTER_ID      1042 // ID 입력 필드
 #define IDC_LABEL_REGISTER_PASS   1043 // Password 레이블
 #define IDC_EDIT_REGISTER_PASS    1044 // Password 입력 필드
+#define IDC_BUTTON_CHANGE_PASSWORD 1045  // Change 버튼 필드
+#define IDC_BUTTON_ADMIN_LOGIN     1046
+#define IDC_LABEL_LOGGEDIN_AS      1047
+#define IDC_STATIC_LOGGEDIN_ID     1047
 
 #define PREFIRE_SOUND IDR_WAVE1
 #define MAX_FAILED_ATTEMPTS       3
@@ -77,6 +82,7 @@
 
 // Global Variables:
 bool isLoggedIn = false;  // Check Login State
+std::string loggedInUserID;
 
 HWND hWndMain;
 GUID InstanceGuid;
@@ -91,6 +97,7 @@ static char EngagementOrder[512] = "0123456789";
 static char PreArmCode[512] = "";
 static char ID[32] = ""; // 추가
 static char Password[32] = "";
+char currentUserId[32];
 
 //static char SavedID[512] = "LG_Shiled"; // 저장된 ID
 //static char SavedPassword[512] = "0123456789"; // 저장된 Password
@@ -105,6 +112,9 @@ static BOOL                InitInstance(HINSTANCE, int);
 static LRESULT CALLBACK    WndProc(HWND, UINT, WPARAM, LPARAM);
 static INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
 
+INT_PTR CALLBACK ChangePasswordDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
+INT_PTR CALLBACK AdminLoginDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
+
 static int CountDups(char* string);
 static LRESULT OnCreate(HWND, UINT, WPARAM, LPARAM);
 static LRESULT OnSize(HWND, UINT, WPARAM, LPARAM);
@@ -113,17 +123,23 @@ static int OnDisconnect(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 static int OnStartServer(HWND, UINT, WPARAM, LPARAM);
 static int OnStopServer(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 static void SetStdOutToNewConsole(void);
-static void DisplayMessageOkBox(const char* Msg);
+//static void DisplayMessageOkBox(const char* Msg);
 static bool OnlyOneInstance(void);
-bool IsAccountLocked(const std::string& userID);
-void RecordFailedAttempt(const std::string& userID);
+//bool IsAccountLocked(const std::string& userID);
+//void RecordFailedAttempt(const std::string& userID);
 bool IsValidPassword(const std::string& password);
-void ProcessLoginResponse(LogInState_t response);
+void OnAdminLoginButtonClick(HWND hWnd);
+void ShowLoggedInID(HWND hWnd, const char* id);
+void OnRegistorButtonClick(HWND hWnd);
+void DisplayMessageOkBox(const char* Msg);
+//void RecordLockTime(const std::string& userID);
+bool IsAccountLocked(unsigned int failCount);
+void OnLoginButtonClick(HWND hWnd);
 //void OnLogin(HWND hWnd);
 //void OnLogout(HWND hWnd);
 //void RegisterUser(HWND hWnd);
 //bool SendLoginRequestToServer(const char* userId, const char* userPw);
-void OnLoginButtonClick(HWND hWnd);
+
 
 // Mock function to check if client is connected
 /*
@@ -132,7 +148,6 @@ bool IsClientConnected() {
     return true;
 }
 */
-
 // Mock function to write data to the server using TCP
 int WriteDataTcp(void* ssl, unsigned char* data, int length) {
     // This should be implemented to actually send data over TCP
@@ -140,124 +155,7 @@ int WriteDataTcp(void* ssl, unsigned char* data, int length) {
     return length;
 }
 
-void OnLoginButtonClick(HWND hWnd) {
-    // Retrieve user input from the UI
-    char userId[32];
-    char userPw[32];
-    GetWindowTextA(GetDlgItem(hWnd, IDC_EDIT_ID), userId, sizeof(userId));
-    GetWindowTextA(GetDlgItem(hWnd, IDC_EDIT_PASSWORD), userPw, sizeof(userPw));
-
-    // Validate input
-    if (strlen(userId) == 0 || strlen(userPw) == 0) {
-        DisplayMessageOkBox("ID나 Password를 입력하세요!");
-        return;
-    }
-
-    std::string userID = userId;
-    std::string password = userPw;
-    /*   auto it = accounts.find(userID);
-       if (it == accounts.end()) {
-           DisplayMessageOkBox("계정이 존재하지 않습니다.");
-           return;
-       }
-       */
-    if (IsAccountLocked(userID)) {
-        DisplayMessageOkBox("계정이 잠겼습니다. 1시간 후에 다시 시도하십시오.");
-        return;
-    }
-
-    if (!IsValidPassword(password)) {
-        DisplayMessageOkBox("비밀번호는 10자 이상이어야 하며, 최소 하나의 숫자와 기호를 포함해야 합니다!");
-        RecordFailedAttempt(userID);
-        return;
-    }
-
-    // Check length of userId and userPw
-    if (strlen(userId) >= sizeof(((TMesssageLoginVerifyRequest*)0)->Name) ||
-        strlen(userPw) >= sizeof(((TMesssageLoginVerifyRequest*)0)->Password)) {
-        DisplayMessageOkBox("ID나 Password가 너무 깁니다!");
-        return;
-    }
-    //it->second.failedAttempts = 0;
-
-    // Send login request to server
-    if (SendLoginVerifyToSever(userId, userPw)) {
-        std::cout << "Login request sent successfully" << std::endl;
-    }
-    else {
-        std::cout << "Failed to send login request" << std::endl;
-    }
-
-
-}
-
-void OnRegistorButtonClick(HWND hWnd) {
-    // Retrieve user input from the UI
-    char userId[32];
-    char userPw[32];
-    GetWindowTextA(GetDlgItem(hWnd, IDC_EDIT_ID), userId, sizeof(userId));
-    GetWindowTextA(GetDlgItem(hWnd, IDC_EDIT_PASSWORD), userPw, sizeof(userPw));
-
-    // Validate input
-    if (strlen(userId) == 0 || strlen(userPw) == 0) {
-        DisplayMessageOkBox("ID나 Password를 입력하세요!");
-        return;
-    }
-
-    std::string userID = userId;
-    std::string password = userPw;
-
-    if (!IsValidPassword(password)) {
-        DisplayMessageOkBox("비밀번호는 10자 이상이어야 하며, 최소 하나의 숫자와 기호를 포함해야 합니다!");
-        RecordFailedAttempt(userID);
-        return;
-    }
-
-    // Check length of userId and userPw
-    if (strlen(userId) >= sizeof(((TMesssageLoginVerifyRequest*)0)->Name) ||
-        strlen(userPw) >= sizeof(((TMesssageLoginVerifyRequest*)0)->Password)) {
-        DisplayMessageOkBox("ID나 Password가 너무 깁니다!");
-        return;
-    }
-
-    // Send login request to server
-    if (SendLoginEnrollToSever(userId, userPw)) {
-        std::cout << "Enroll successfully" << std::endl;
-    }
-    else {
-        std::cout << "Failed to Enroll request" << std::endl;
-    }
-}
-
-void ProcessLoginResponse(LogInState_t response) {
-    switch (response) {
-    case SUCCESS:
-        DisplayMessageOkBox("Login 성공");
-        break;
-    case NOT_EXIST_USER:
-        DisplayMessageOkBox("존재하지 않는 사용자입니다.");
-        break;
-    case INVALID_PASSWORD:
-        DisplayMessageOkBox("비밀번호가 잘못되었습니다.");
-        break;
-    case EXIST_USER:
-        DisplayMessageOkBox("이미 존재하는 사용자입니다.");
-        break;
-    case EXPIRE_PASSWORD:
-        DisplayMessageOkBox("비밀번호가 만료되었습니다.");
-        break;
-    case INVALID_TOKEN:
-        DisplayMessageOkBox("잘못된 토큰입니다.");
-        break;
-    case INVALID_OPERATION:
-        DisplayMessageOkBox("잘못된 작업입니다.");
-        break;
-    default:
-        DisplayMessageOkBox("알 수 없는 오류가 발생했습니다.");
-        break;
-    }
-}
-
+/*
 struct AccountLockInfo {
     int failedAttempts;
     time_t lockTime;
@@ -274,7 +172,7 @@ struct AccountInfo {
 
 // 글로벌 변수로 계정 정보 맵 선언
 std::map<std::string, AccountInfo> accounts;
-
+*/
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     _In_opt_ HINSTANCE hPrevInstance,
     _In_ LPWSTR    lpCmdLine,
@@ -475,29 +373,6 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
             if (SendCode != 0)
             {
                 SendCodeToSever(SendCode);
-                /* TODO:delete this code
-                std::string idAndPw = "abcde12345";
-
-                size_t arraySize = idAndPw.size();
-                char* byteArray = new char[arraySize];
-
-                std::memcpy(byteArray, idAndPw.data(), idAndPw.size());
-                //strncpy_s(char_array, idAndPw.c_str(), sizeof(char_array));
-                SendLoginToSever(5, 5, byteArray);
-                */
-                /*
-                const char* byteUserId = "user01";
-                const char* byteUserPw = "p@ssWord";
-
-                SendLoginVerifyToSever(byteUserId, byteUserPw);
-                */
-                /*
-                const char* myKey = "myHamcKeyPleaseForget";
-                const char* body = "thisisamessagebody";
-                setHmacKey(myKey);
-                encryptBodyWithHMac(body);
-                */
-
             }
         }
     }
@@ -564,6 +439,10 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
         }
         break;
 
+        case IDC_BUTTON_ADMIN_LOGIN:
+            OnAdminLoginButtonClick(hWnd);
+            break;
+
         case IDC_BUTTON_LOGIN:
         {
             // 로그인 버튼 클릭 처리
@@ -580,6 +459,15 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
         */
         case IDC_BUTTON_REGISTER:
             OnRegistorButtonClick(hWnd);
+            break;
+
+        case IDC_BUTTON_CHANGE_PASSWORD:
+            if (isLoggedIn) {
+                DialogBox(hInst, MAKEINTRESOURCE(IDD_CHANGE_PASSWORD_DIALOG), hWnd, ChangePasswordDialogProc);
+            }
+            else {
+                MessageBoxA(hWnd, "Please login first!", "Error", MB_OK | MB_ICONERROR);
+            }
             break;
 
         case IDC_CHECKBOX_ARMED_MANUAL:
@@ -703,12 +591,92 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
     }
     break;
 
+
     case WM_LOGIN_STATE:
     {
-        LogInState_t loginState = (LogInState_t)wParam;
-        ProcessLoginResponse(loginState);
+        /*
+        TMesssageLoginVerifyResponse* MsgLoginVerifyRes;
+        LogInState_t loginState = static_cast<LogInState_t>(wParam);
+        MsgLoginVerifyRes = (TMesssageLoginVerifyResponse*)lParam;
+        MsgLoginVerifyRes->LoginState = (LogInState_t)ntohl(MsgLoginVerifyRes->LoginState);
+        unsigned int failCount = ntohl(MsgLoginVerifyRes->FailCount);
+
+        std::string userID = loggedInUserID; // 로그인 시도한 사용자 ID
+        */
+        LogInState_t loginState = static_cast<LogInState_t>(wParam);
+
+        if (loginState == SUCCESS) {
+            DisplayMessageOkBox("Login Success!");
+            //if (ntohl(MsgLoginVerifyRes->Privilige) == 1) {
+            //    DisplayMessageOkBox("Admin으로 로그인 되었습니다.");
+            //}
+            //ShowLoggedInID(hWnd, userID.c_str()); // 로그인된 사용자 ID 표시
+        }
+        else if (loginState == NOT_EXIST_USER) {
+            DisplayMessageOkBox("계정을 찾을 수 없습니다.");
+        }
+        else if (loginState == INVALID_PASSWORD) {
+            DisplayMessageOkBox("비밀번호가 틀렸습니다.");
+        }
+        else if (loginState == AUTH_THROTTLED) {
+            DisplayMessageOkBox("계정이 잠겼습니다. 1시간 후에 다시 시도하십시오.");
+        }
+        else {
+            DisplayMessageOkBox("로그인 실패!");
+        }
         break;
     }
+    /*
+    case MT_LOGIN_VERIFY_RES:
+    {
+        TMesssageLoginVerifyResponse* MsgLoginVerifyRes;
+        MsgLoginVerifyRes = (TMesssageLoginVerifyResponse*)lParam;
+        MsgLoginVerifyRes->LoginState = (LogInState_t)ntohl(MsgLoginVerifyRes->LoginState);
+        unsigned int failCount = ntohl(MsgLoginVerifyRes->FailCount);
+
+        std::string userID = loggedInUserID; // 로그인 시도한 사용자 ID
+
+        if (MsgLoginVerifyRes->LoginState == INVALID_PASSWORD) {
+                DisplayMessageOkBox("비밀번호가 틀렸습니다.");
+        }
+        else if (MsgLoginVerifyRes->LoginState == SUCCESS) {
+            DisplayMessageOkBox("로그인 성공!");
+            // Privilige 값 확인하여 admin 로그인 여부 표시
+            if (ntohl(MsgLoginVerifyRes->Privilige) == 1) {
+                DisplayMessageOkBox("Admin으로 로그인 되었습니다.");
+            }
+            ShowLoggedInID(hWnd, userID.c_str()); // 로그인된 사용자 ID 표시
+        }
+        else if (MsgLoginVerifyRes->LoginState == NOT_EXIST_USER) {
+            DisplayMessageOkBox("계정을 찾을 수 없습니다.");
+        }
+        else if (MsgLoginVerifyRes->LoginState == AUTH_THROTTLED) {
+            DisplayMessageOkBox("계정이 잠겼습니다. 1시간 후에 다시 시도하십시오.");
+        }
+        else {
+            DisplayMessageOkBox("로그인 실패!");
+        }
+
+        break;
+    }
+
+    case MT_LOGIN_ENROLL_RES: {
+        TMesssageLoginEnrollResponse* MsgLoginEnrolRes;
+        MsgLoginEnrolRes = (TMesssageLoginEnrollResponse*)lParam;
+        MsgLoginEnrolRes->LoginState = (LogInState_t)ntohl(MsgLoginEnrolRes->LoginState);
+
+        if (MsgLoginEnrolRes->LoginState == INVALID_PASSWORD) {
+              DisplayMessageOkBox("비밀번호가 틀렸습니다.");
+         }
+        else if (MsgLoginEnrolRes->LoginState == SUCCESS) {
+               DisplayMessageOkBox("로그인 성공!");
+        }
+        else
+        {
+            ;;
+        }
+    }
+    */
     case WM_CREATE:
         OnCreate(hWnd, message, wParam, lParam);
         break;
@@ -937,6 +905,22 @@ static LRESULT OnCreate(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     InitCommonControls();
 
     CreateWindow(_T("STATIC"),
+        _T("Logged in as:"),
+        WS_VISIBLE | WS_CHILD,
+        1100, 870, 100, 20,  // 초기 위치와 크기 (적절히 수정)
+        hWnd,
+        (HMENU)IDC_LABEL_LOGGEDIN_AS,
+        ((LPCREATESTRUCT)lParam)->hInstance, NULL);
+
+    CreateWindow(_T("STATIC"),
+        _T(""),
+        WS_VISIBLE | WS_CHILD,
+        1210, 870, 100, 20,
+        hWnd,
+        (HMENU)IDC_STATIC_LOGGEDIN_ID,
+        ((LPCREATESTRUCT)lParam)->hInstance, NULL);
+
+    CreateWindow(_T("STATIC"),
         _T("Remote Address:"),
         WS_VISIBLE | WS_CHILD,
         5, 50, 120, 20,
@@ -1035,12 +1019,18 @@ static LRESULT OnCreate(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         (HMENU)IDC_BUTTON_LOGIN,
         ((LPCREATESTRUCT)lParam)->hInstance, NULL);
 
-    // 로그아웃 버튼 추가
-    CreateWindow(_T("button"), _T("Logout"),
+    CreateWindow(_T("button"), _T("Change Password"),
         WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
-        1280, 50, 60, 20,
+        1050, 75, 120, 20,  // ID 입력칸 아래로 이동
         hWnd,
-        (HMENU)IDC_BUTTON_LOGOUT,
+        (HMENU)IDC_BUTTON_CHANGE_PASSWORD,
+        ((LPCREATESTRUCT)lParam)->hInstance, NULL);
+
+    CreateWindow(_T("button"), _T("Register"),
+        WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
+        1180, 75, 100, 20,  // ID 입력칸 아래로 이동
+        hWnd,
+        (HMENU)IDC_BUTTON_REGISTER,
         ((LPCREATESTRUCT)lParam)->hInstance, NULL);
 
     CreateWindow(_T("button"), _T("Armed Manual"),
@@ -1096,15 +1086,7 @@ static LRESULT OnCreate(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         670, 75, 130, 20,
         hWnd, (HMENU)IDC_CHECKBOX_CAMERA, ((LPCREATESTRUCT)lParam)->hInstance, NULL);
     CheckDlgButton(hWnd, IDC_CHECKBOX_CAMERA, checked);
-    EnableWindow(GetDlgItem(hWnd, IDC_CHECKBOX_CAMERA), false);
-
-    // 추가
-    CreateWindow(_T("button"), _T("Register"),
-        WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
-        1280, 100, 105, 20,
-        hWnd,
-        (HMENU)IDC_BUTTON_REGISTER,
-        ((LPCREATESTRUCT)lParam)->hInstance, NULL);
+    EnableWindow(GetDlgItem(hWnd, IDC_CHECKBOX_CAMERA), true);
 
     hWndEdit = CreateWindow(_T("edit"), NULL,
         WS_CHILD | WS_BORDER | WS_VISIBLE | ES_MULTILINE | WS_VSCROLL | ES_READONLY,
@@ -1126,8 +1108,13 @@ LRESULT OnSize(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     cxClient = LOWORD(lParam);
     cyClient = HIWORD(lParam);
 
-    //printf("size\n");
+    // Update the position of the ID display
+    MoveWindow(GetDlgItem(hWnd, IDC_LABEL_LOGGEDIN_AS), cxClient - 200, cyClient - 50, 100, 20, TRUE);
+    MoveWindow(GetDlgItem(hWnd, IDC_STATIC_LOGGEDIN_ID), cxClient - 100, cyClient - 50, 100, 20, TRUE);
+
     MoveWindow(hWndEdit, 5, cyClient - 70, cxClient - 10, 60, TRUE);
+
+    return DefWindowProc(hWnd, message, wParam, lParam);
 
     return DefWindowProc(hWnd, message, wParam, lParam);
 }
@@ -1214,6 +1201,7 @@ int PRINT(const TCHAR* fmt, ...)
     return(cnt);
 }
 
+/*
 static void DisplayMessageOkBox(const char* Msg)
 {
     int msgboxID = MessageBoxA(
@@ -1237,6 +1225,7 @@ static void DisplayMessageOkBox(const char* Msg)
     }
 
 }
+*/
 static bool OnlyOneInstance(void)
 {
     HANDLE m_singleInstanceMutex = CreateMutex(NULL, TRUE, L"F2CBD5DE-2AEE-4BDA-8C56-D508CFD3F4DE");
@@ -1253,20 +1242,9 @@ static bool OnlyOneInstance(void)
     return true;
 }
 
-bool IsAccountLocked(const std::string& userID) {
-    auto it = accounts.find(userID);
-    if (it != accounts.end() && it->second.failedAttempts >= MAX_FAILED_ATTEMPTS) {
-        time_t currentTime = time(nullptr);
-        if (difftime(currentTime, it->second.lockTime) < LOCK_DURATION) {
-            return true;
-        }
-        else {
-            it->second.failedAttempts = 0;
-            it->second.lockTime = 0;
-            return false;
-        }
-    }
-    return false;
+/*
+bool IsAccountLocked(unsigned int failCount) {
+    return failCount >= 3;
 }
 
 void RecordFailedAttempt(const std::string& userID) {
@@ -1279,6 +1257,15 @@ void RecordFailedAttempt(const std::string& userID) {
     }
 }
 
+// 계정 잠금 시간 기록 함수
+void RecordLockTime(const std::string& userID) {
+    auto it = accounts.find(userID);
+    if (it != accounts.end()) {
+        it->second.lockTime = time(nullptr);
+    }
+}
+*/
+
 bool IsValidPassword(const std::string& password) {
     if (password.length() < 10) return false;
     bool hasLetter = false, hasDigit = false, hasSpecial = false;
@@ -1290,7 +1277,149 @@ bool IsValidPassword(const std::string& password) {
     return hasLetter && hasDigit && hasSpecial;
 }
 
+INT_PTR CALLBACK ChangePasswordDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam) {
+    switch (message) {
+    case WM_INITDIALOG:
+        return (INT_PTR)TRUE;
 
+    case WM_COMMAND:
+        if (LOWORD(wParam) == IDOK) {
+            char currentPassword[32], newPassword[32], confirmPassword[32];
+            GetDlgItemTextA(hDlg, IDC_EDIT_CURRENT_PASSWORD, currentPassword, sizeof(currentPassword));
+            GetDlgItemTextA(hDlg, IDC_EDIT_NEW_PASSWORD, newPassword, sizeof(newPassword));
+            GetDlgItemTextA(hDlg, IDC_EDIT_CONFIRM_PASSWORD, confirmPassword, sizeof(confirmPassword));
+
+            if (strcmp(newPassword, confirmPassword) != 0) {
+                MessageBoxA(hDlg, "New passwords do not match!", "Error", MB_OK | MB_ICONERROR);
+                return (INT_PTR)FALSE;
+            }
+
+            if (!IsValidPassword(newPassword)) {
+                MessageBoxA(hDlg, "New password must be at least 10 characters long and include at least one number and one special character.", "Error", MB_OK | MB_ICONERROR);
+                return (INT_PTR)FALSE;
+            }
+
+            // Send password change request to server
+            if (SendLoginChangePwToSever(currentUserId, newPassword)) {
+                MessageBoxA(hDlg, "Password changed successfully!", "Success", MB_OK | MB_ICONINFORMATION);
+                EndDialog(hDlg, LOWORD(wParam));
+            }
+            else {
+                MessageBoxA(hDlg, "Failed to change password. Please try again.", "Error", MB_OK | MB_ICONERROR);
+            }
+        }
+        else if (LOWORD(wParam) == IDCANCEL) {
+            EndDialog(hDlg, LOWORD(wParam));
+        }
+        break;
+    }
+    return (INT_PTR)FALSE;
+}
+
+// 관리자 로그인 다이얼로그 프로시저
+INT_PTR CALLBACK AdminLoginDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam) {
+    UNREFERENCED_PARAMETER(lParam);
+    switch (message) {
+    case WM_INITDIALOG:
+        return (INT_PTR)TRUE;
+
+    case WM_COMMAND:
+        if (LOWORD(wParam) == IDOK) {
+            char adminId[32];
+            char adminPw[32];
+
+            GetWindowTextA(GetDlgItem(hDlg, IDC_EDIT_ADMIN_ID), adminId, sizeof(adminId));
+            GetWindowTextA(GetDlgItem(hDlg, IDC_EDIT_ADMIN_PASSWORD), adminPw, sizeof(adminPw));
+
+            if (SendLoginVerifyToSever(adminId, adminPw)) {
+                MessageBox(hDlg, L"Admin Login Successful!", L"Success", MB_OK);
+                ShowLoggedInID(hWndMain, adminId); // 로그인 ID 표시
+                EndDialog(hDlg, LOWORD(wParam));
+            }
+            else {
+                MessageBox(hDlg, L"Invalid Admin ID or Password", L"Error", MB_OK);
+            }
+        }
+        else if (LOWORD(wParam) == IDCANCEL) {
+            EndDialog(hDlg, LOWORD(wParam));
+            return (INT_PTR)TRUE;
+        }
+        break;
+    }
+    return (INT_PTR)FALSE;
+}
+
+void ShowLoggedInID(HWND hWnd, const char* id) {
+    SetWindowTextA(GetDlgItem(hWnd, IDC_STATIC_LOGGEDIN_ID), id);
+}
+
+void OnAdminLoginButtonClick(HWND hWnd) {
+    // 관리자 로그인 다이얼로그를 생성
+    DialogBox(hInst, MAKEINTRESOURCE(IDD_ADMIN_LOGIN_DIALOG), hWnd, AdminLoginDialogProc);
+}
+
+void OnLoginButtonClick(HWND hWnd) {
+    // Retrieve user input from the UI
+    char userId[32];
+    char userPw[32];
+    GetWindowTextA(GetDlgItem(hWnd, IDC_EDIT_ID), userId, sizeof(userId));
+    GetWindowTextA(GetDlgItem(hWnd, IDC_EDIT_PASSWORD), userPw, sizeof(userPw));
+
+    // Validate input
+    if (strlen(userId) == 0 || strlen(userPw) == 0) {
+        DisplayMessageOkBox("ID나 Password를 입력하세요!");
+        return;
+    }
+
+    std::string userID = userId;
+    std::string password = userPw;
+
+    loggedInUserID = userID; // 로그인 시도한 사용자 ID를 저장
+
+    // Send login request to server
+    if (SendLoginVerifyToSever(userId, userPw)) {
+        std::cout << "Login request sent successfully" << std::endl;
+    }
+    else {
+        std::cout << "Failed to send login request" << std::endl;
+    }
+}
+
+void OnRegistorButtonClick(HWND hWnd) {
+    // Retrieve user input from the UI
+    char userId[32];
+    char userPw[32];
+    GetWindowTextA(GetDlgItem(hWnd, IDC_EDIT_ID), userId, sizeof(userId));
+    GetWindowTextA(GetDlgItem(hWnd, IDC_EDIT_PASSWORD), userPw, sizeof(userPw));
+
+    // Validate input
+    if (strlen(userId) == 0 || strlen(userPw) == 0) {
+        DisplayMessageOkBox("Please enter your ID or password!");
+        return;
+    }
+
+    std::string userID = userId;
+    std::string password = userPw;
+
+    // Check length of userId and userPw
+    if (strlen(userId) >= sizeof(((TMesssageLoginVerifyRequest*)0)->Name) ||
+        strlen(userPw) >= sizeof(((TMesssageLoginVerifyRequest*)0)->Password)) {
+        DisplayMessageOkBox("ID or password is too long!");
+        return;
+    }
+
+    // Send login request to server
+    if (SendLoginEnrollToSever(userId, userPw)) {
+        std::cout << "Enroll successfully" << std::endl;
+    }
+    else {
+        std::cout << "Failed to Enroll request" << std::endl;
+    }
+}
+
+void DisplayMessageOkBox(const char* Msg) {
+    MessageBoxA(NULL, Msg, "Information", MB_OK | MB_TASKMODAL);
+}
 //-----------------------------------------------------------------
 // END of File
-//-----------------------------------------------------------------
+//----------------------------------------------------------------- 

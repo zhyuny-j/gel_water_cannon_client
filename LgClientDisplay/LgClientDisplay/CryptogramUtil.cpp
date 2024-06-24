@@ -7,8 +7,19 @@
 
 char* hmacKey = new char[32];
 
-void setHmacKey(const char* newHmacKey) {
-	strcpy_s(hmacKey, strlen(newHmacKey)+1, newHmacKey);
+void setHmacKey(const char* newHmacKey, int bodyLengh) {
+    std::cout << "HmacKey: ";
+    for (size_t i = 0; i < strlen(newHmacKey); ++i) {
+        printf("%02x", newHmacKey[i]);
+    }
+    printf("\n");
+    memcpy(hmacKey, newHmacKey, bodyLengh);
+    std::cout << "MemoryHmacKey: ";
+    for (size_t i = 0; i < strlen(hmacKey); ++i) {
+        printf("%02x", hmacKey[i]);
+    }
+    printf("\n");
+	//strcpy_s(hmacKey, sizeof(hmacKey), newHmacKey);
 }
 
 unsigned char* encryptBodyWithHMac(const char* body, int bodySize) {
