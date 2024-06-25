@@ -212,7 +212,7 @@ bool SendStateChangeRequestToSever(SystemState_t State)
 	{
 		TMesssageChangeStateRequest MsgChangeStateRequest;
 		memset(&MsgChangeStateRequest, 0, sizeof(TMesssageChangeStateRequest));
-		int msglen = sizeof(TMesssageChangeStateRequest) + sizeof(MsgChangeStateRequest.Token);
+		int msglen = sizeof(TMesssageHeader) + sizeof(MsgChangeStateRequest.State) + sizeof(MsgChangeStateRequest.Token);
 		MsgChangeStateRequest.Hdr.Len = htonl(sizeof(MsgChangeStateRequest.State) + sizeof(MsgChangeStateRequest.Token));
 		MsgChangeStateRequest.Hdr.Type = htonl(MT_STATE_CHANGE_REQ);
 		MsgChangeStateRequest.Hdr.SeqNum = htonll(getClientSequenceNumber());
@@ -336,7 +336,7 @@ bool SendLogoutToSever() {
 		MsgLogout.Hdr.Type = htonl(MT_LOGOUT_REQ);
 		MsgLogout.Hdr.SeqNum = htonll(getClientSequenceNumber());
 
-		memoryCopyAndMemset(MsgLogout.Token, sizeof(MsgLogout.Token), token);
+		memcpy(MsgLogout.Token, token, sizeof(MsgLogout.Token));
 
 		int bodySize = sizeof(MsgLogout.Token);
 		setHmacValue(MsgLogout.Hdr.HMAC, sizeof(MsgLogout.Hdr.HMAC), MsgLogout.Token, bodySize);
