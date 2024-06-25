@@ -24,6 +24,7 @@
 #include <openssl/err.h>
 #include <openssl/hmac.h>
 #include <openssl/evp.h>
+#include "Logger.h"
 
 #pragma comment(lib, "ws2_32.lib")
 #pragma comment(lib, "libssl.lib")
@@ -101,6 +102,7 @@ bool SendCodeToSever(unsigned char Code)
 	if (IsClientConnected())
 	{
 		TMesssageCommands MsgCmd;
+		memset(&MsgCmd, 0, sizeof(TMesssageCommands));
 		int msglen = sizeof(TMesssageHeader) + sizeof(MsgCmd.Commands) + sizeof(MsgCmd.Token);
 		//printf("Message len %d\n", msglen);
 		MsgCmd.Hdr.Len = htonl(sizeof(MsgCmd.Commands) + sizeof(MsgCmd.Token));
@@ -109,23 +111,13 @@ bool SendCodeToSever(unsigned char Code)
 
 		MsgCmd.Commands = Code;
 		
-		//TODO: It is a test code. delete this code
-		/*
-		setHmacKey("myHamcKeyPleaseForget", 21);
-
-		printf("assign toke: ");
-		for (int i = 0; i < 32; i++) {
-			token[i] = 0x21;
-			printf("%02x", token[i]);
-		}
-		printf("\n");
-		*/
-		memcpy(MsgCmd.Token, token, strlen(token));
+		memcpy(MsgCmd.Token, token, sizeof(MsgCmd.Token));
 		int bodySize = sizeof(MsgCmd.Commands) + sizeof(MsgCmd.Token);
 		setHmacValue(MsgCmd.Hdr.HMAC, sizeof(MsgCmd.Hdr.HMAC), reinterpret_cast<const char*>(&MsgCmd.Commands), bodySize);
 
 		if (WriteDataTcp(ssl, (unsigned char*)&MsgCmd, msglen) == msglen)
 		{
+			printLog(LogLevel::DEBUG, "[SND] type: MT_COMMANDS, length: " + std::to_string(msglen));
 			return true;
 		}
 
@@ -138,6 +130,7 @@ bool SendCalibToSever(unsigned char Code)
 	if (IsClientConnected())
 	{
 		TMesssageCalibCommands MsgCmd;
+		memset(&MsgCmd, 0, sizeof(TMesssageCommands));
 		int msglen = sizeof(TMesssageHeader) + sizeof(MsgCmd.Commands) + sizeof(MsgCmd.Token);
 		//printf("Message len %d\n", msglen);
 		MsgCmd.Hdr.Len = htonl(sizeof(MsgCmd.Commands) + sizeof(MsgCmd.Token));
@@ -145,13 +138,14 @@ bool SendCalibToSever(unsigned char Code)
 		MsgCmd.Hdr.SeqNum = htonll(getClientSequenceNumber());
 
 		MsgCmd.Commands = Code;
-		memcpy(MsgCmd.Token, token, strlen(token));
+		memcpy(MsgCmd.Token, token, sizeof(MsgCmd.Token));
 
 		int bodySize = sizeof(MsgCmd.Commands) + sizeof(MsgCmd.Token);
 		setHmacValue(MsgCmd.Hdr.HMAC, sizeof(MsgCmd.Hdr.HMAC), reinterpret_cast<const char*>(&MsgCmd.Commands), bodySize);
 
 		if (WriteDataTcp(ssl, (unsigned char*)&MsgCmd, msglen) == msglen)
 		{
+			printLog(LogLevel::DEBUG, "[SND] type: MT_CALIB_COMMANDS, length: " + std::to_string(msglen));
 			return true;
 		}
 
@@ -164,22 +158,23 @@ bool SendTargetOrderToSever(char* TargetOrder)
 	if (IsClientConnected())
 	{
 		TMesssageTargetOrder MsgTargetOrder;
-		int msglen = sizeof(TMesssageHeader) + (int)strlen((const char*)TargetOrder) + 1 + sizeof(MsgTargetOrder.Token);
-		MsgTargetOrder.Hdr.Len = htonl((int)strlen((const char*)TargetOrder) + 1 + sizeof(MsgTargetOrder.Token));
+		memset(&MsgTargetOrder, 0, sizeof(TMesssageTargetOrder));
+		int msglen = sizeof(TMesssageHeader) + sizeof(MsgTargetOrder.FiringOrder) + sizeof(MsgTargetOrder.Token);
+		MsgTargetOrder.Hdr.Len = htonl(sizeof(MsgTargetOrder.FiringOrder) + sizeof(MsgTargetOrder.Token));
 		MsgTargetOrder.Hdr.Type = htonl(MT_TARGET_SEQUENCE);
 		MsgTargetOrder.Hdr.SeqNum = htonll(getClientSequenceNumber());
 
 		strcpy_s((char*)MsgTargetOrder.FiringOrder, sizeof(MsgTargetOrder.FiringOrder), TargetOrder);
-		memcpy(MsgTargetOrder.Token, token, strlen(token));
+		memcpy(MsgTargetOrder.Token, token, sizeof(MsgTargetOrder.Token));
 
 		int bodySize = sizeof(MsgTargetOrder.FiringOrder) + sizeof(MsgTargetOrder.Token);
 		setHmacValue(MsgTargetOrder.Hdr.HMAC, sizeof(MsgTargetOrder.Hdr.HMAC), MsgTargetOrder.FiringOrder, bodySize);
 
 		if (WriteDataTcp(ssl, (unsigned char*)&MsgTargetOrder, msglen) == msglen)
 		{
+			printLog(LogLevel::DEBUG, "[SND] type: MT_TARGET_SEQUENCE, length: " + std::to_string(msglen));
 			return true;
 		}
-
 	}
 	return false;
 }
@@ -189,19 +184,21 @@ bool SendPreArmCodeToSever(char* Code)
 	if (IsClientConnected())
 	{
 		TMesssagePreArm MsgPreArm;
-		int msglen = sizeof(TMesssageHeader) + (int)strlen(Code) + 1 + sizeof(MsgPreArm.Token);
-		MsgPreArm.Hdr.Len = htonl((int)strlen(Code) + 1 + sizeof(MsgPreArm.Token));
+		memset(&MsgPreArm, 0, sizeof(TMesssagePreArm));
+		int msglen = sizeof(TMesssageHeader) + sizeof(MsgPreArm.Code) + sizeof(MsgPreArm.Token);
+		MsgPreArm.Hdr.Len = htonl(sizeof(MsgPreArm.Code) + sizeof(MsgPreArm.Token));
 		MsgPreArm.Hdr.Type = htonl(MT_PREARM);
 		MsgPreArm.Hdr.SeqNum = htonll(getClientSequenceNumber());
 
 		strcpy_s((char*)MsgPreArm.Code, sizeof(MsgPreArm.Code), Code);
-		memcpy(MsgPreArm.Token, token, strlen(token));
+		memcpy(MsgPreArm.Token, token, sizeof(MsgPreArm.Token));
 
 		int bodySize = sizeof(MsgPreArm.Code) + sizeof(MsgPreArm.Token);
 		setHmacValue(MsgPreArm.Hdr.HMAC, sizeof(MsgPreArm.Hdr.HMAC), MsgPreArm.Code, bodySize);
 
 		if (WriteDataTcp(ssl, (unsigned char*)&MsgPreArm, msglen) == msglen)
 		{
+			printLog(LogLevel::DEBUG, "[SND] type: MT_PREARM, length: " + std::to_string(msglen));
 			return true;
 		}
 
@@ -214,19 +211,21 @@ bool SendStateChangeRequestToSever(SystemState_t State)
 	if (IsClientConnected())
 	{
 		TMesssageChangeStateRequest MsgChangeStateRequest;
+		memset(&MsgChangeStateRequest, 0, sizeof(TMesssageChangeStateRequest));
 		int msglen = sizeof(TMesssageChangeStateRequest) + sizeof(MsgChangeStateRequest.Token);
 		MsgChangeStateRequest.Hdr.Len = htonl(sizeof(MsgChangeStateRequest.State) + sizeof(MsgChangeStateRequest.Token));
 		MsgChangeStateRequest.Hdr.Type = htonl(MT_STATE_CHANGE_REQ);
 		MsgChangeStateRequest.Hdr.SeqNum = htonll(getClientSequenceNumber());
 
 		MsgChangeStateRequest.State = (SystemState_t)htonl(State);
-		memcpy(MsgChangeStateRequest.Token, token, strlen(token));
+		memcpy(MsgChangeStateRequest.Token, token, sizeof(MsgChangeStateRequest.Token));
 
 		int bodySize = sizeof(MsgChangeStateRequest.State) + sizeof(MsgChangeStateRequest.Token);
 		setHmacValue(MsgChangeStateRequest.Hdr.HMAC, sizeof(MsgChangeStateRequest.Hdr.HMAC), reinterpret_cast<const char*>(&MsgChangeStateRequest.State), bodySize);
 
 		if (WriteDataTcp(ssl, (unsigned char*)&MsgChangeStateRequest, msglen) == msglen)
 		{
+			printLog(LogLevel::DEBUG, "[SND] type: MT_STATE_CHANGE_REQ, length: " + std::to_string(msglen));
 			return true;
 		}
 
@@ -239,15 +238,13 @@ bool SendLoginEnrollToSever(const char* userId, const char* userPw)
 	if (IsClientConnected())
 	{
 		std::cout << "SendLoginEnrollToSever" << std::endl;
-
 		TMesssageLoginEnrollRequest MsgLoginEnroll;
+		memset(&MsgLoginEnroll, 0, sizeof(TMesssageLoginEnrollRequest));
 		int msglen = sizeof(TMesssageHeader) + (int)sizeof(MsgLoginEnroll.Name) + (int)sizeof(MsgLoginEnroll.Password);
 
 		MsgLoginEnroll.Hdr.Len = htonl((int)sizeof(MsgLoginEnroll.Name) + (int)sizeof(MsgLoginEnroll.Password));
 		MsgLoginEnroll.Hdr.Type = htonl(MT_LOGIN_ENROLL_REQ);
 		MsgLoginEnroll.Hdr.SeqNum = htonll(getClientSequenceNumber());
-
-		printf("sequence number: %d", MsgLoginEnroll.Hdr.SeqNum);
 
 		memoryCopyAndMemset(MsgLoginEnroll.Name, sizeof(MsgLoginEnroll.Name), userId);
 		memoryCopyAndMemset(MsgLoginEnroll.Password, sizeof(MsgLoginEnroll.Password), userPw);
@@ -257,6 +254,7 @@ bool SendLoginEnrollToSever(const char* userId, const char* userPw)
 
 		if (WriteDataTcp(ssl, (unsigned char*)&MsgLoginEnroll, msglen) == msglen)
 		{
+			printLog(LogLevel::DEBUG, "[SND] type: MT_LOGIN_ENROLL_REQ, length: " + std::to_string(msglen));
 			return true;
 		}
 
@@ -269,8 +267,9 @@ bool SendLoginVerifyToSever(const char* userId, const char* userPw)
 	if (IsClientConnected())
 	{
 		std::cout << "SendLoginVerifyToSever" << std::endl;
-
+		
 		TMesssageLoginVerifyRequest MsgLoginVerify;
+		memset(&MsgLoginVerify, 0, sizeof(TMesssageLoginVerifyRequest));
 		int msglen = sizeof(TMesssageHeader) + (int)sizeof(MsgLoginVerify.Name) + (int)sizeof(MsgLoginVerify.Password);
 
 		MsgLoginVerify.Hdr.Len = htonl((int)sizeof(MsgLoginVerify.Name) + (int)sizeof(MsgLoginVerify.Password));
@@ -285,6 +284,7 @@ bool SendLoginVerifyToSever(const char* userId, const char* userPw)
 
 		if (WriteDataTcp(ssl, (unsigned char*)&MsgLoginVerify, msglen) == msglen)
 		{
+			printLog(LogLevel::DEBUG, "[SND] type: MT_LOGIN_VERITY_REQ, length: " + std::to_string(msglen));
 			return true;
 		}
 
@@ -299,6 +299,7 @@ bool SendLoginChangePwToSever(const char* userId, const char* userPw)
 		std::cout << "SendLoginChangePwToSever" << std::endl;
 
 		TMesssageLoginChangePwRequest MsgLoginChangePw;
+		memset(&MsgLoginChangePw, 0, sizeof(TMesssageLoginChangePwRequest));
 		int msglen = sizeof(TMesssageHeader) + (int)sizeof(MsgLoginChangePw.Name) + (int)sizeof(MsgLoginChangePw.Password) + (int)sizeof(MsgLoginChangePw.Token);
 
 		MsgLoginChangePw.Hdr.Len = htonl((int)sizeof(MsgLoginChangePw.Name) + (int)sizeof(MsgLoginChangePw.Password) + (int)sizeof(MsgLoginChangePw.Token));
@@ -314,6 +315,7 @@ bool SendLoginChangePwToSever(const char* userId, const char* userPw)
 
 		if (WriteDataTcp(ssl, (unsigned char*)&MsgLoginChangePw, msglen) == msglen)
 		{
+			printLog(LogLevel::DEBUG, "[SND] type: MT_LOGIN_CHANGEPW_REQ, length: " + std::to_string(msglen));
 			return true;
 		}
 
@@ -327,6 +329,7 @@ bool SendLogoutToSever() {
 		std::cout << "SendLogoutToSever" << std::endl;
 
 		TMesssageLogoutRequest MsgLogout;
+		memset(&MsgLogout, 0, sizeof(TMesssageLogoutRequest));
 		int msglen = sizeof(TMesssageHeader) + sizeof(MsgLogout.Token);
 
 		MsgLogout.Hdr.Len = htonl(sizeof(MsgLogout.Token));
@@ -340,6 +343,7 @@ bool SendLogoutToSever() {
 
 		if (WriteDataTcp(ssl, (unsigned char*)&MsgLogout, msglen) == msglen)
 		{
+			printLog(LogLevel::DEBUG, "[SND] type: MT_LOGOUT_REQ, length: " + std::to_string(msglen));
 			return true;
 		}
 	}
@@ -353,8 +357,8 @@ bool ConnectToSever(const char* remotehostname, unsigned short remoteport)
 	struct addrinfo   hints;
 	struct addrinfo* result = NULL;
 	char remoteportno[128];
+	initLogger("gel_water_blaster_cannon_client.log");
 	SSL_CTX* ctx = InitCTX();
-
 
 	// Load server key and CRT
 	if (SSL_CTX_load_verify_locations(ctx, CA_CERT_FILE, nullptr) <= 0) {
@@ -464,7 +468,7 @@ bool checkSequenceNumberValidation(unsigned long long receivedSequenceNumber) {
 		return true;
 	}
 	if (serverSequenceNumber >= receivedSequenceNumber) {
-		printf("Invalid sequence number: %d\n", receivedSequenceNumber);
+		printf("[checkSequenceNumberValidation] Invalid sequence number: %llu\n", receivedSequenceNumber);
 		return false;
 	}
 	serverSequenceNumber = receivedSequenceNumber;
@@ -509,6 +513,8 @@ bool IsClientConnected(void)
 }
 void ProcessMessage(char* MsgBuffer)
 {
+	int messageLength = strlen(MsgBuffer) -1 ;
+
 	TMesssageHeader* MsgHdr;
 	MsgHdr = (TMesssageHeader*)MsgBuffer;
 	MsgHdr->Len = ntohl(MsgHdr->Len);
@@ -518,7 +524,7 @@ void ProcessMessage(char* MsgBuffer)
 	//printf("Message Length: %d\n", MsgHdr->Len);
 	//TODO: valid sequence number
 	if (!checkSequenceNumberValidation(MsgHdr->SeqNum)) {
-		
+		return;
 	}
 
 	switch (MsgHdr->Type)
@@ -537,6 +543,7 @@ void ProcessMessage(char* MsgBuffer)
 	break;
 	case MT_STATE:
 	{
+		printLog(LogLevel::DEBUG, "[RCV] type: TMesssageSystemState, length: " + std::to_string(messageLength));
 		TMesssageSystemState* MsgState;
 		MsgState = (TMesssageSystemState*)MsgBuffer;
 		MsgState->State = (SystemState_t)ntohl(MsgState->State);
@@ -546,6 +553,7 @@ void ProcessMessage(char* MsgBuffer)
 	break;
 	case MT_LOGIN_ENROLL_RES:
 	{
+		printLog(LogLevel::DEBUG, "[RCV] type: MT_LOGIN_ENROLL_RES, length: " + std::to_string(messageLength));
 		TMesssageLoginEnrollResponse* MsgLoginEnrolRes;
 		MsgLoginEnrolRes = (TMesssageLoginEnrollResponse*)MsgBuffer;
 		MsgLoginEnrolRes->LoginState = (LogInState_t)ntohl(MsgLoginEnrolRes->LoginState);
@@ -561,6 +569,7 @@ void ProcessMessage(char* MsgBuffer)
 	break;
 	case MT_LOGIN_VERITY_RES:
 	{
+		printLog(LogLevel::DEBUG, "[RCV] type: MT_LOGIN_VERITY_RES, length: " + std::to_string(messageLength));
 		TMesssageLoginVerifyResponse* MsgLoginVerifyRes;
 		MsgLoginVerifyRes = (TMesssageLoginVerifyResponse*)MsgBuffer;
 		MsgLoginVerifyRes->LoginState = (LogInState_t)ntohl(MsgLoginVerifyRes->LoginState);
@@ -576,12 +585,22 @@ void ProcessMessage(char* MsgBuffer)
 		}
 		else {
 			memcpy(token, MsgLoginVerifyRes->Token, sizeof(MsgLoginVerifyRes->Token));
+
+			/*
+			std::cout << "[MT_LOGIN_VERITY_RES] Received Token: ";
+			for (size_t i = 0; i < strlen(token); ++i) {
+				printf("%02x ", token[i]);
+			}
+			printf("\n");
+			*/
+
 			PostMessage(hWndMain, WM_LOGIN_PRIVILEGE, MsgLoginVerifyRes->Privilige, 0);
 		}
 	}
 	break;
 	case MT_LOGIN_CHANGEPW_RES:
 	{
+		printLog(LogLevel::DEBUG, "[RCV] type: MT_LOGIN_CHANGEPW_RES, length: " + std::to_string(messageLength));
 		TMesssageLoginChangePwResponse* MsgLoginChangePwRes;
 		MsgLoginChangePwRes = (TMesssageLoginChangePwResponse*)MsgBuffer;
 		MsgLoginChangePwRes->LoginState = (LogInState_t)ntohl(MsgLoginChangePwRes->LoginState);
@@ -596,6 +615,7 @@ void ProcessMessage(char* MsgBuffer)
 	break;
 	case MT_SHARED_HMAC_KEY:
 	{
+		printLog(LogLevel::DEBUG, "[RCV] type: MT_SHARED_HMAC_KEY, length: " + std::to_string(messageLength));
 		TMesssageSharedHmacKey* MsgSharedHmacKey;
 		MsgSharedHmacKey = (TMesssageSharedHmacKey*)MsgBuffer;
 
@@ -605,6 +625,7 @@ void ProcessMessage(char* MsgBuffer)
 	break;
 	case MT_LOGOUT_RES:
 	{
+		printLog(LogLevel::DEBUG, "[RCV] type: MT_LOGOUT_RES, length: " + std::to_string(messageLength));
 		TMesssageLogoutResponse* MsgLogoutRes;
 		MsgLogoutRes = (TMesssageLogoutResponse*)MsgBuffer;
 		MsgLogoutRes->LoginState = (LogInState_t)ntohl(MsgLogoutRes->LoginState);
@@ -806,7 +827,7 @@ static DWORD WINAPI ThreadClient(LPVOID ivalue)
 
 							}
 						}
-						else std::cout << "ReadDataTcpNoBlock buff failed " << WSAGetLastError() << std::endl;
+						//else std::cout << "ReadDataTcpNoBlock buff failed " << WSAGetLastError() << std::endl;
 
 					}
 

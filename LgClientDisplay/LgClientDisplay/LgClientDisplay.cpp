@@ -1345,6 +1345,7 @@ void OnLoginButtonClick(HWND hWnd) {
 	if (SendLoginVerifyToSever(userId, userPw)) {
 		std::cout << "Login request sent successfully" << std::endl;
 		EnableWindow(GetDlgItem(hWnd, IDC_BUTTON_CHANGE_PASSWORD), TRUE);
+		isLoggedIn = true;
 	}
 	else {
 		std::cout << "Failed to send login request" << std::endl;

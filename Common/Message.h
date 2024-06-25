@@ -66,7 +66,7 @@ enum LogInState_t : unsigned int
     NO_PERMISSION       = 0x9,
     E_SUCCESS           = 0xA,
     C_SUCCESS           = 0xB,
-    MT_LOGOUT = 0xF,
+    MT_LOGOUT           = 0xF,
 };
 
 
