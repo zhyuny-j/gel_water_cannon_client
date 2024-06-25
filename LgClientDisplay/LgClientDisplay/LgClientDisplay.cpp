@@ -434,12 +434,22 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
 
 			hEditWnd = GetDlgItem(hWnd, IDC_EDIT_ENGAGE_ORDER);
 			GetWindowTextA(hEditWnd, temp, sizeof(temp));
-			if (CountDups(temp))
+
+			if (strlen(temp) > 10)
+			{
+				SetWindowTextA(hEditWnd, "");
+				MessageBeep(MB_ICONEXCLAMATION);
+				MessageBoxA(hWnd, "You can enter up to 10 characters. Please enter again.", "Input Error", MB_OK | MB_ICONERROR);
+			}
+			else if (CountDups(temp))
 			{
 				SetWindowTextA(hEditWnd, EngagementOrder);
 				MessageBeep(MB_ICONEXCLAMATION);
 			}
-			else GetWindowTextA(hEditWnd, EngagementOrder, sizeof(EngagementOrder));
+			else
+			{
+				GetWindowTextA(hEditWnd, EngagementOrder, sizeof(EngagementOrder));
+			}
 			//PRINT(_T("IDC_EDIT_ENGAGE_ORDER\r\n"));
 		}
 		break;
@@ -450,10 +460,11 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
 
 			hEditWnd = GetDlgItem(hWnd, IDC_EDIT_PREARM_CODE);
 			GetWindowTextA(hEditWnd, temp, sizeof(temp));
-			if (strlen(temp) > 8)
+			if (strlen(temp) > 9)
 			{
-				SetWindowTextA(hEditWnd, PreArmCode);
+				SetWindowTextA(hEditWnd, "");
 				MessageBeep(MB_ICONEXCLAMATION);
+				MessageBoxA(hWnd, "You can enter 9 characters. Please enter again.", "Input Error", MB_OK | MB_ICONERROR);
 			}
 			GetWindowTextA(hEditWnd, PreArmCode, sizeof(PreArmCode));
 			//PRINT(_T("IDC_EDIT_ENGAGE_ORDER\r\n"));
@@ -1414,7 +1425,7 @@ void CheckNetworkStatus(HWND hWnd) {
 	bool isConnected = IsClientConnected();
 
 	if (wasConnected && !isConnected) {
-		MessageBox(hWnd, _T("네트워크 연결이 끊어졌습니다."), _T("네트워크 오류"), MB_OK | MB_ICONERROR);
+		MessageBox(hWnd, _T("Network connection is lost."), _T("network error"), MB_OK | MB_ICONERROR);
 	}
 
 	wasConnected = isConnected;

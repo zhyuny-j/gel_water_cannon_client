@@ -448,10 +448,6 @@ bool ConnectToSever(const char* remotehostname, unsigned short remoteport)
 }
 
 void setHmacValue(char* headerHmac, int sizeOfHmac, const char* body, int bodySize) {
-	//TODO: delete this code for setHmacKey
-	//const char* myKey = "helloworld012345678901234567890";
-	//setHmacKey(myKey);
-
 	unsigned char* encryptedBody = encryptBodyWithHMac(body, bodySize);
 	memcpy(headerHmac, encryptedBody, sizeOfHmac);
 }
@@ -468,7 +464,7 @@ bool checkSequenceNumberValidation(unsigned long long receivedSequenceNumber) {
 		return true;
 	}
 	if (serverSequenceNumber >= receivedSequenceNumber) {
-		printf("[checkSequenceNumberValidation] Invalid sequence number: %llu\n", receivedSequenceNumber);
+		printf("[checkSequenceNumberValidation] Invalid sequence number: %llu. Drop the message.\n", receivedSequenceNumber);
 		return false;
 	}
 	serverSequenceNumber = receivedSequenceNumber;
@@ -521,8 +517,6 @@ void ProcessMessage(char* MsgBuffer)
 	MsgHdr->Type = ntohl(MsgHdr->Type);
 	MsgHdr->SeqNum = htonll(MsgHdr->SeqNum);
 
-	//printf("Message Length: %d\n", MsgHdr->Len);
-	//TODO: valid sequence number
 	if (!checkSequenceNumberValidation(MsgHdr->SeqNum)) {
 		return;
 	}
@@ -585,15 +579,6 @@ void ProcessMessage(char* MsgBuffer)
 		}
 		else {
 			memcpy(token, MsgLoginVerifyRes->Token, sizeof(MsgLoginVerifyRes->Token));
-
-			/*
-			std::cout << "[MT_LOGIN_VERITY_RES] Received Token: ";
-			for (size_t i = 0; i < strlen(token); ++i) {
-				printf("%02x ", token[i]);
-			}
-			printf("\n");
-			*/
-
 			PostMessage(hWndMain, WM_LOGIN_PRIVILEGE, MsgLoginVerifyRes->Privilige, 0);
 		}
 	}
@@ -779,16 +764,6 @@ static DWORD WINAPI ThreadClient(LPVOID ivalue)
 							}
 							else
 							{
-								//TODO: delete this code
-								/*
-								int i = 0;
-								std::cout << "RECV: ";
-								for (i = 0; i < 8; i++) {
-									fprintf(stdout, "%02X", InputBufferWithOffset[i]);
-								}
-								std::cout << std::endl;
-								*/
-
 								InputBytesNeeded -= iResult;
 								InputBufferWithOffset += iResult;
 								if (InputBytesNeeded == 0)
