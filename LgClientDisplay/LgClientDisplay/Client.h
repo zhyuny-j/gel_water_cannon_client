@@ -16,7 +16,7 @@ void setHmacValue(char* headerHmac, int sizeOfHmac, const char* body, int bodySi
 bool checkHmacValidation(char* headerHmac, int sizeOfHmac, const char* body, int bodySize);
 bool checkSequenceNumberValidation(unsigned long long receivedSequenceNumber);
 unsigned long long getClientSequenceNumber();
-void memoryCopyAndMemset(char* destnation, int sizeOfDestination, const char* source);
+void memoryCopyAndMemset(char* destination, int sizeOfDestination, const char* source);
 //bool GetStoredCredential(const wchar_t* targetName, std::wstring& username, std::wstring& password);
 //-----------------------------------------------------------------
 // END of File

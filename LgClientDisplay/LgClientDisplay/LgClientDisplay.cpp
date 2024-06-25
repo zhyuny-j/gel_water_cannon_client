@@ -81,7 +81,7 @@
 #define LOCK_DURATION             3600 // 1 hour in seconds
 
 #define NETWORK_CHECK_TIMER 1
-#define NETWORK_CHECK_INTERVAL 5000 // 5 seconds
+#define NETWORK_CHECK_INTERVAL 30000 // 5 seconds
 
 // Global Variables:
 bool isLoggedIn = false;  // Check Login State
@@ -649,7 +649,7 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
 			DisplayMessageOkBox("Your password is incorrect.");
 		}
 		else if (loginState == EXIST_USER) {
-			DisplayMessageOkBox("The user does not exist.");
+			DisplayMessageOkBox("The user already exist.");
 		}
 		else if (loginState == EXPIRE_PASSWORD) {
 			DisplayMessageOkBox("Your password has expired.");
@@ -670,14 +670,17 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
 	}
 	case WM_LOGIN_FAIL_COUNT:
 	{
-		unsigned int failCount = static_cast<unsigned int>(wParam);
-		// 실패 횟수를 처리하는 로직을 여기에 추가할 수 있습니다.
-		std::cout << "Login fail count: " << failCount << std::endl;
-		break;
-	}
-	case WM_LOGIN_THROTTLE:
-	{
-		DisplayMessageOkBox("Your account has been locked. Please try again in 1 hour.");
+		unsigned int failCount = (unsigned int)wParam;
+		if (failCount >= 3) {
+			DisplayMessageOkBox("Your account has been locked. Please try again in 1 hour.");
+		}
+		/*
+		else {
+			wchar_t msg[64];
+			swprintf_s(msg, L"%d login attempts failed. %d times left before account is locked.", failCount, 3 - failCount);
+			MessageBox(hWnd, msg, L"Login failed", MB_OK | MB_ICONWARNING);
+		}
+		*/
 		break;
 	}
 	case WM_CREATE:
@@ -914,6 +917,7 @@ static LRESULT OnCreate(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	UINT checked = BST_UNCHECKED;;
 	InitCommonControls();
 
+	/*
 	CreateWindow(_T("STATIC"),
 		_T("Logged in as:"),
 		WS_VISIBLE | WS_CHILD,
@@ -929,6 +933,7 @@ static LRESULT OnCreate(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		hWnd,
 		(HMENU)IDC_STATIC_LOGGEDIN_ID,
 		((LPCREATESTRUCT)lParam)->hInstance, NULL);
+	*/
 
 	CreateWindow(_T("STATIC"),
 		_T("Remote Address:"),
@@ -1130,8 +1135,8 @@ LRESULT OnSize(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	cyClient = HIWORD(lParam);
 
 	// Update the position of the ID display
-	MoveWindow(GetDlgItem(hWnd, IDC_LABEL_LOGGEDIN_AS), cxClient - 200, cyClient - 50, 100, 20, TRUE);
-	MoveWindow(GetDlgItem(hWnd, IDC_STATIC_LOGGEDIN_ID), cxClient - 100, cyClient - 50, 100, 20, TRUE);
+	//MoveWindow(GetDlgItem(hWnd, IDC_LABEL_LOGGEDIN_AS), cxClient - 200, cyClient - 50, 100, 20, TRUE);
+	//MoveWindow(GetDlgItem(hWnd, IDC_STATIC_LOGGEDIN_ID), cxClient - 100, cyClient - 50, 100, 20, TRUE);
 
 	MoveWindow(hWndEdit, 5, cyClient - 70, cxClient - 10, 60, TRUE);
 
@@ -1350,10 +1355,10 @@ void OnLoginButtonClick(HWND hWnd) {
 	std::string userID = userId;
 	std::string password = userPw;
 
-	loggedInUserID = userID; // 로그인 시도한 사용자 ID를 저장
+	strcpy_s(currentUserId, userId); // 로그인 시도한 사용자 ID를 저장
 
 	// Send login request to server
-	if (SendLoginVerifyToSever(userId, userPw)) {
+	if (SendLoginVerifyToSever(currentUserId, userPw)) {
 		std::cout << "Login request sent successfully" << std::endl;
 		EnableWindow(GetDlgItem(hWnd, IDC_BUTTON_CHANGE_PASSWORD), TRUE);
 		isLoggedIn = true;
@@ -1385,9 +1390,9 @@ void OnRegistorButtonClick(HWND hWnd) {
 		DisplayMessageOkBox("ID or password is too long!");
 		return;
 	}
-
+	strcpy_s(currentUserId, userId); // 로그인 시도한 사용자 ID를 저장
 	// Send login request to server
-	if (SendLoginEnrollToSever(userId, userPw)) {
+	if (SendLoginEnrollToSever(currentUserId, userPw)) {
 		std::cout << "Enroll successfully" << std::endl;
 	}
 	else {

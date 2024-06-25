@@ -308,7 +308,7 @@ bool SendLoginChangePwToSever(const char* userId, const char* userPw)
 
 		memoryCopyAndMemset(MsgLoginChangePw.Name, sizeof(MsgLoginChangePw.Name), userId);
 		memoryCopyAndMemset(MsgLoginChangePw.Password, sizeof(MsgLoginChangePw.Password), userPw);
-		memoryCopyAndMemset(MsgLoginChangePw.Token, sizeof(MsgLoginChangePw.Token), token);
+		memcpy(MsgLoginChangePw.Token, token, sizeof(MsgLoginChangePw.Token));
 
 		int bodySize = sizeof(MsgLoginChangePw.Name) + sizeof(MsgLoginChangePw.Password) + sizeof(MsgLoginChangePw.Token);
 		setHmacValue(MsgLoginChangePw.Hdr.HMAC, sizeof(MsgLoginChangePw.Hdr.HMAC), MsgLoginChangePw.Name, bodySize);
@@ -475,10 +475,16 @@ unsigned long long getClientSequenceNumber() {
 	return ++clientSequenceNumber;
 }
 
-
-void memoryCopyAndMemset(char* destnation, int sizeOfDestination, const char* source) {
-	strcpy_s(destnation, sizeOfDestination, source);
-	memset(destnation + strlen(destnation), 0, sizeOfDestination - strlen(destnation));
+void memoryCopyAndMemset(char* destination, int sizeOfDestination, const char* source) {
+	if (source == nullptr) {
+		memset(destination, 0, sizeOfDestination);
+		return;
+	}
+	strcpy_s(destination, sizeOfDestination, source);
+	if (sizeOfDestination <= strlen(source)) {
+		return;
+	}
+	memset(destination + strlen(destination), 0, sizeOfDestination - strlen(destination));
 }
 
 bool StartClient(void)
@@ -509,13 +515,15 @@ bool IsClientConnected(void)
 }
 void ProcessMessage(char* MsgBuffer)
 {
-	int messageLength = strlen(MsgBuffer) -1 ;
-
 	TMesssageHeader* MsgHdr;
 	MsgHdr = (TMesssageHeader*)MsgBuffer;
 	MsgHdr->Len = ntohl(MsgHdr->Len);
 	MsgHdr->Type = ntohl(MsgHdr->Type);
 	MsgHdr->SeqNum = htonll(MsgHdr->SeqNum);
+
+	int bodyLength;
+	std::memcpy(&bodyLength, &MsgHdr->Len, sizeof(int));
+	int messageLength = sizeof(TMesssageHeader) + bodyLength;
 
 	if (!checkSequenceNumberValidation(MsgHdr->SeqNum)) {
 		return;
@@ -537,7 +545,7 @@ void ProcessMessage(char* MsgBuffer)
 	break;
 	case MT_STATE:
 	{
-		printLog(LogLevel::DEBUG, "[RCV] type: TMesssageSystemState, length: " + std::to_string(messageLength));
+		printLog(LogLevel::DEBUG, "[RCV] type: MT_STATE, length: " + std::to_string(messageLength));
 		TMesssageSystemState* MsgState;
 		MsgState = (TMesssageSystemState*)MsgBuffer;
 		MsgState->State = (SystemState_t)ntohl(MsgState->State);
@@ -548,14 +556,23 @@ void ProcessMessage(char* MsgBuffer)
 	case MT_LOGIN_ENROLL_RES:
 	{
 		printLog(LogLevel::DEBUG, "[RCV] type: MT_LOGIN_ENROLL_RES, length: " + std::to_string(messageLength));
+
+		std::cout << "[MT_LOGIN_ENROLL_RES] receivedHMac: ";
+		for (size_t i = 0; i < sizeof(MsgHdr->HMAC); ++i) {
+			printf("%02x", MsgHdr->HMAC[i]);
+		}
+		printf("\n");
+
 		TMesssageLoginEnrollResponse* MsgLoginEnrolRes;
 		MsgLoginEnrolRes = (TMesssageLoginEnrollResponse*)MsgBuffer;
 		MsgLoginEnrolRes->LoginState = (LogInState_t)ntohl(MsgLoginEnrolRes->LoginState);
 		int bodySize = sizeof(MsgLoginEnrolRes->LoginState);
-		char messageByte[sizeof(unsigned int)];
-		std::memcpy(&messageByte, &MsgLoginEnrolRes->LoginState, sizeof(unsigned int));
-		if (!checkHmacValidation(MsgHdr->HMAC, sizeof(MsgHdr->HMAC), messageByte, bodySize)) {
+		//char messageByte[sizeof(unsigned int)];
+		//std::memcpy(&messageByte, &MsgLoginEnrolRes->LoginState, sizeof(unsigned int));
+		
+		if (!checkHmacValidation(MsgHdr->HMAC, sizeof(MsgHdr->HMAC), reinterpret_cast<const char*>(&MsgLoginEnrolRes->LoginState), bodySize)) {
 			printf("The HMAC value of LoginEnrollResponse is invalid. Drop the message");
+
 		}
 		PostMessage(hWndMain, WM_LOGIN_STATE, MsgLoginEnrolRes->LoginState, 0);
 
@@ -564,13 +581,25 @@ void ProcessMessage(char* MsgBuffer)
 	case MT_LOGIN_VERITY_RES:
 	{
 		printLog(LogLevel::DEBUG, "[RCV] type: MT_LOGIN_VERITY_RES, length: " + std::to_string(messageLength));
+
+		std::cout << "[MT_LOGIN_VERITY_RES] receivedHMac: ";
+		for (size_t i = 0; i < sizeof(MsgHdr->HMAC); ++i) {
+			printf("%02x", MsgHdr->HMAC[i]);
+		}
+		printf("\n");
+
 		TMesssageLoginVerifyResponse* MsgLoginVerifyRes;
 		MsgLoginVerifyRes = (TMesssageLoginVerifyResponse*)MsgBuffer;
 		MsgLoginVerifyRes->LoginState = (LogInState_t)ntohl(MsgLoginVerifyRes->LoginState);
+		MsgLoginVerifyRes->FailCount = ntohl(MsgLoginVerifyRes->FailCount);
+		MsgLoginVerifyRes->Throttle = ntohl(MsgLoginVerifyRes->Throttle);
+		MsgLoginVerifyRes->Privilige = ntohl(MsgLoginVerifyRes->Privilige);
+
 		int bodySize = sizeof(MsgLoginVerifyRes->LoginState) + sizeof(MsgLoginVerifyRes->FailCount) +
 			sizeof(MsgLoginVerifyRes->Throttle) + sizeof(MsgLoginVerifyRes->Privilige) + sizeof(MsgLoginVerifyRes->Token);
 		if (!checkHmacValidation(MsgHdr->HMAC, sizeof(MsgHdr->HMAC), reinterpret_cast<const char*>(&MsgLoginVerifyRes->LoginState), bodySize)) {
 			printf("The HMAC value of LoginVerifyResponse is invalid. Drop the message");
+			
 		}
 		PostMessage(hWndMain, WM_LOGIN_STATE, MsgLoginVerifyRes->LoginState, 0);
 		if (LogInState_t::SUCCESS != MsgLoginVerifyRes->LoginState) {
@@ -586,6 +615,13 @@ void ProcessMessage(char* MsgBuffer)
 	case MT_LOGIN_CHANGEPW_RES:
 	{
 		printLog(LogLevel::DEBUG, "[RCV] type: MT_LOGIN_CHANGEPW_RES, length: " + std::to_string(messageLength));
+
+		std::cout << "[MT_LOGIN_CHANGEPW_RES] receivedHMac: ";
+		for (size_t i = 0; i < sizeof(MsgHdr->HMAC); ++i) {
+			printf("%02x", MsgHdr->HMAC[i]);
+		}
+		printf("\n");
+
 		TMesssageLoginChangePwResponse* MsgLoginChangePwRes;
 		MsgLoginChangePwRes = (TMesssageLoginChangePwResponse*)MsgBuffer;
 		MsgLoginChangePwRes->LoginState = (LogInState_t)ntohl(MsgLoginChangePwRes->LoginState);
@@ -619,7 +655,7 @@ void ProcessMessage(char* MsgBuffer)
 		std::memcpy(&messageByte, &MsgLogoutRes->LoginState, sizeof(unsigned int));
 		if (!checkHmacValidation(MsgHdr->HMAC, sizeof(MsgHdr->HMAC), messageByte, bodySize)) {
 			printf("The HMAC value of LoginEnrollResponse is invalid. Drop the message");
-			return;
+			
 		}
 		//Initialize token
 		for (int i = 0; i < strlen(token); i++) {
