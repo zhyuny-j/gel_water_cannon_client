@@ -163,13 +163,13 @@ typedef struct
 typedef struct
 {
     TMesssageHeader Hdr;
-    LogInState_t  LoginState;
+    unsigned int  LoginState;
 } TMesssageLoginEnrollResponse;
 
 typedef struct
 {
     TMesssageHeader Hdr;
-    LogInState_t  LoginState;
+    unsigned int  LoginState;
     unsigned int    FailCount;
     unsigned long long   Throttle;
     unsigned int    Privilige;
@@ -179,7 +179,7 @@ typedef struct
 typedef struct
 {
     TMesssageHeader Hdr;
-    LogInState_t  LoginState;
+    unsigned int  LoginState;
 } TMesssageLoginChangePwResponse;
 
 typedef struct
@@ -197,7 +197,7 @@ typedef struct
 typedef struct
 {
     TMesssageHeader Hdr;
-    LogInState_t  LoginState;
+    unsigned int  LoginState;
 } TMesssageLogoutResponse;
 
 

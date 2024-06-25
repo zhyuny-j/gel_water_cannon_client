@@ -86,6 +86,7 @@
 // Global Variables:
 bool isLoggedIn = false;  // Check Login State
 bool wasConnected = false; // 이전 연결 상태를 저장하는 변수
+bool isAdmin = false;
 std::string loggedInUserID;
 
 HWND hWndMain;
@@ -118,6 +119,7 @@ static INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
 
 INT_PTR CALLBACK ChangePasswordDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
 INT_PTR CALLBACK AdminLoginDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
+INT_PTR CALLBACK AdminChangePasswordDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
 
 static int CountDups(char* string);
 static LRESULT OnCreate(HWND, UINT, WPARAM, LPARAM);
@@ -489,6 +491,7 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
 				loggedInUserID.clear();
 				EnableWindow(GetDlgItem(hWnd, IDC_BUTTON_CHANGE_PASSWORD), FALSE);
 				ShowLoggedInID(hWnd, ""); // 로그인 상태 초기화
+				SendLogoutToSever();
 				DisplayMessageOkBox("Logout Success");
 			}
 			break;
@@ -499,7 +502,10 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
 			break;
 
 		case IDC_BUTTON_CHANGE_PASSWORD:
-			if (isLoggedIn) {
+			if (isLoggedIn && isAdmin) { // 관리자 로그인 여부 확인
+				DialogBox(hInst, MAKEINTRESOURCE(IDD_ADMIN_CHANGE_PASSWORD_DIALOG), hWnd, AdminChangePasswordDialogProc);
+			}
+			else if (isLoggedIn && !isAdmin) {
 				DialogBox(hInst, MAKEINTRESOURCE(IDD_CHANGE_PASSWORD_DIALOG), hWnd, ChangePasswordDialogProc);
 			}
 			else {
@@ -637,9 +643,11 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
 			DisplayMessageOkBox("Login Success!");
 			if (privilege == 1) {
 				DisplayMessageOkBox("Admin Login.");
+				isAdmin = true;
 			}
 			else {
 				DisplayMessageOkBox("User Login.");
+				isAdmin = false;
 			}
 		}
 		else if (loginState == NOT_EXIST_USER) {
@@ -674,15 +682,13 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
 		if (failCount >= 3) {
 			DisplayMessageOkBox("Your account has been locked. Please try again in 1 hour.");
 		}
-		/*
-		else {
-			wchar_t msg[64];
-			swprintf_s(msg, L"%d login attempts failed. %d times left before account is locked.", failCount, 3 - failCount);
-			MessageBox(hWnd, msg, L"Login failed", MB_OK | MB_ICONWARNING);
+		else
+		{
+			;
 		}
-		*/
 		break;
 	}
+	break;
 	case WM_CREATE:
 		OnCreate(hWnd, message, wParam, lParam);
 		break;
@@ -917,7 +923,6 @@ static LRESULT OnCreate(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	UINT checked = BST_UNCHECKED;;
 	InitCommonControls();
 
-	/*
 	CreateWindow(_T("STATIC"),
 		_T("Logged in as:"),
 		WS_VISIBLE | WS_CHILD,
@@ -933,7 +938,6 @@ static LRESULT OnCreate(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		hWnd,
 		(HMENU)IDC_STATIC_LOGGEDIN_ID,
 		((LPCREATESTRUCT)lParam)->hInstance, NULL);
-	*/
 
 	CreateWindow(_T("STATIC"),
 		_T("Remote Address:"),
@@ -1135,8 +1139,8 @@ LRESULT OnSize(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	cyClient = HIWORD(lParam);
 
 	// Update the position of the ID display
-	//MoveWindow(GetDlgItem(hWnd, IDC_LABEL_LOGGEDIN_AS), cxClient - 200, cyClient - 50, 100, 20, TRUE);
-	//MoveWindow(GetDlgItem(hWnd, IDC_STATIC_LOGGEDIN_ID), cxClient - 100, cyClient - 50, 100, 20, TRUE);
+	MoveWindow(GetDlgItem(hWnd, IDC_LABEL_LOGGEDIN_AS), cxClient - 200, cyClient - 50, 100, 20, TRUE);
+	MoveWindow(GetDlgItem(hWnd, IDC_STATIC_LOGGEDIN_ID), cxClient - 100, cyClient - 50, 100, 20, TRUE);
 
 	MoveWindow(hWndEdit, 5, cyClient - 70, cxClient - 10, 60, TRUE);
 
@@ -1297,6 +1301,45 @@ INT_PTR CALLBACK ChangePasswordDialogProc(HWND hDlg, UINT message, WPARAM wParam
 	return (INT_PTR)FALSE;
 }
 
+INT_PTR CALLBACK AdminChangePasswordDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam) {
+	switch (message) {
+	case WM_INITDIALOG:
+		return (INT_PTR)TRUE;
+
+	case WM_COMMAND:
+		if (LOWORD(wParam) == IDOK) {
+			char userId[32], userPassword[32], newPassword[32], confirmPassword[32];
+			GetDlgItemTextA(hDlg, IDC_EDIT_USER_ID, userId, sizeof(userId));
+			GetDlgItemTextA(hDlg, IDC_EDIT_NEW_PASSWORD, newPassword, sizeof(newPassword));
+
+			if (!IsValidPassword(newPassword)) {
+				wchar_t msg[64];
+				swprintf(msg, 64, L"New password must be at least 10 characters long and include at least one number and one special character.");
+				MessageBox(hDlg, msg, L"Error", MB_OK | MB_ICONERROR);
+				return (INT_PTR)FALSE;
+			}
+
+			// Send password change request to server
+			if (SendLoginChangePwToSever(userId, newPassword)) {
+				wchar_t msg[64];
+				swprintf(msg, 64, L"Password changed successfully!");
+				MessageBox(hDlg, msg, L"Success", MB_OK | MB_ICONINFORMATION);
+				EndDialog(hDlg, LOWORD(wParam));
+			}
+			else {
+				wchar_t msg[64];
+				swprintf(msg, 64, L"Failed to change password. Please try again.");
+				MessageBox(hDlg, msg, L"Error", MB_OK | MB_ICONERROR);
+			}
+		}
+		else if (LOWORD(wParam) == IDCANCEL) {
+			EndDialog(hDlg, LOWORD(wParam));
+		}
+		break;
+	}
+	return (INT_PTR)FALSE;
+}
+
 // 관리자 로그인 다이얼로그 프로시저
 INT_PTR CALLBACK AdminLoginDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam) {
 	UNREFERENCED_PARAMETER(lParam);
@@ -1390,7 +1433,9 @@ void OnRegistorButtonClick(HWND hWnd) {
 		DisplayMessageOkBox("ID or password is too long!");
 		return;
 	}
+
 	strcpy_s(currentUserId, userId); // 로그인 시도한 사용자 ID를 저장
+
 	// Send login request to server
 	if (SendLoginEnrollToSever(currentUserId, userPw)) {
 		std::cout << "Enroll successfully" << std::endl;
@@ -1422,7 +1467,7 @@ void OnLogoutButtonClick(HWND hWnd) {
 
 	// UI 요소 비활성화
 	EnableWindow(GetDlgItem(hWnd, IDC_BUTTON_CHANGE_PASSWORD), FALSE);
-	EnableWindow(GetDlgItem(hWnd, IDC_BUTTON_CHANGE_PASSWORD), TRUE);
+	//EnableWindow(GetDlgItem(hWnd, IDC_BUTTON_CHANGE_PASSWORD), TRUE);
 
 	DisplayMessageOkBox("You have been logged out.");
 }

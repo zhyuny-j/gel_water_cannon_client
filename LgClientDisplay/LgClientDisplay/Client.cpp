@@ -565,15 +565,16 @@ void ProcessMessage(char* MsgBuffer)
 
 		TMesssageLoginEnrollResponse* MsgLoginEnrolRes;
 		MsgLoginEnrolRes = (TMesssageLoginEnrollResponse*)MsgBuffer;
-		MsgLoginEnrolRes->LoginState = (LogInState_t)ntohl(MsgLoginEnrolRes->LoginState);
+		//MsgLoginEnrolRes->LoginState = ntohl(MsgLoginEnrolRes->LoginState);
 		int bodySize = sizeof(MsgLoginEnrolRes->LoginState);
 		//char messageByte[sizeof(unsigned int)];
 		//std::memcpy(&messageByte, &MsgLoginEnrolRes->LoginState, sizeof(unsigned int));
 		
 		if (!checkHmacValidation(MsgHdr->HMAC, sizeof(MsgHdr->HMAC), reinterpret_cast<const char*>(&MsgLoginEnrolRes->LoginState), bodySize)) {
 			printf("The HMAC value of LoginEnrollResponse is invalid. Drop the message");
-
+			return;
 		}
+		MsgLoginEnrolRes->LoginState = ntohl(MsgLoginEnrolRes->LoginState);
 		PostMessage(hWndMain, WM_LOGIN_STATE, MsgLoginEnrolRes->LoginState, 0);
 
 	}
@@ -590,17 +591,18 @@ void ProcessMessage(char* MsgBuffer)
 
 		TMesssageLoginVerifyResponse* MsgLoginVerifyRes;
 		MsgLoginVerifyRes = (TMesssageLoginVerifyResponse*)MsgBuffer;
-		MsgLoginVerifyRes->LoginState = (LogInState_t)ntohl(MsgLoginVerifyRes->LoginState);
-		MsgLoginVerifyRes->FailCount = ntohl(MsgLoginVerifyRes->FailCount);
-		MsgLoginVerifyRes->Throttle = ntohl(MsgLoginVerifyRes->Throttle);
-		MsgLoginVerifyRes->Privilige = ntohl(MsgLoginVerifyRes->Privilige);
-
+		
 		int bodySize = sizeof(MsgLoginVerifyRes->LoginState) + sizeof(MsgLoginVerifyRes->FailCount) +
 			sizeof(MsgLoginVerifyRes->Throttle) + sizeof(MsgLoginVerifyRes->Privilige) + sizeof(MsgLoginVerifyRes->Token);
 		if (!checkHmacValidation(MsgHdr->HMAC, sizeof(MsgHdr->HMAC), reinterpret_cast<const char*>(&MsgLoginVerifyRes->LoginState), bodySize)) {
 			printf("The HMAC value of LoginVerifyResponse is invalid. Drop the message");
-			
+			return;
 		}
+		MsgLoginVerifyRes->LoginState = ntohl(MsgLoginVerifyRes->LoginState);
+		MsgLoginVerifyRes->FailCount = ntohl(MsgLoginVerifyRes->FailCount);
+		MsgLoginVerifyRes->Throttle = ntohll(MsgLoginVerifyRes->Throttle);
+		MsgLoginVerifyRes->Privilige = ntohl(MsgLoginVerifyRes->Privilige);
+
 		PostMessage(hWndMain, WM_LOGIN_STATE, MsgLoginVerifyRes->LoginState, 0);
 		if (LogInState_t::SUCCESS != MsgLoginVerifyRes->LoginState) {
 			PostMessage(hWndMain, WM_LOGIN_FAIL_COUNT, MsgLoginVerifyRes->FailCount, 0);
@@ -621,16 +623,17 @@ void ProcessMessage(char* MsgBuffer)
 			printf("%02x", MsgHdr->HMAC[i]);
 		}
 		printf("\n");
-
 		TMesssageLoginChangePwResponse* MsgLoginChangePwRes;
 		MsgLoginChangePwRes = (TMesssageLoginChangePwResponse*)MsgBuffer;
-		MsgLoginChangePwRes->LoginState = (LogInState_t)ntohl(MsgLoginChangePwRes->LoginState);
+		
 		int bodySize = sizeof(MsgLoginChangePwRes->LoginState);
 		char messageByte[sizeof(unsigned int)];
 		std::memcpy(&messageByte, &MsgLoginChangePwRes->LoginState, sizeof(unsigned int));
 		if (!checkHmacValidation(MsgHdr->HMAC, sizeof(MsgHdr->HMAC), messageByte, bodySize)) {
 			printf("The HMAC value of MsgLoginChangePwRes is invalid. Drop the message");
+			return;
 		}
+		MsgLoginChangePwRes->LoginState = ntohl(MsgLoginChangePwRes->LoginState);
 		PostMessage(hWndMain, WM_LOGIN_STATE, MsgLoginChangePwRes->LoginState, 0);
 	}
 	break;
@@ -649,14 +652,15 @@ void ProcessMessage(char* MsgBuffer)
 		printLog(LogLevel::DEBUG, "[RCV] type: MT_LOGOUT_RES, length: " + std::to_string(messageLength));
 		TMesssageLogoutResponse* MsgLogoutRes;
 		MsgLogoutRes = (TMesssageLogoutResponse*)MsgBuffer;
-		MsgLogoutRes->LoginState = (LogInState_t)ntohl(MsgLogoutRes->LoginState);
+		
 		int bodySize = sizeof(MsgLogoutRes->LoginState);
 		char messageByte[sizeof(unsigned int)];
 		std::memcpy(&messageByte, &MsgLogoutRes->LoginState, sizeof(unsigned int));
 		if (!checkHmacValidation(MsgHdr->HMAC, sizeof(MsgHdr->HMAC), messageByte, bodySize)) {
 			printf("The HMAC value of LoginEnrollResponse is invalid. Drop the message");
-			
+			return;
 		}
+		MsgLogoutRes->LoginState = ntohl(MsgLogoutRes->LoginState);
 		//Initialize token
 		for (int i = 0; i < strlen(token); i++) {
 			token[i] = 0x00;
